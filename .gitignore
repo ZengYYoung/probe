@@ -1,0 +1,35 @@
+# 凭据 / 产物 —— 绝不提交
+.env
+.env.*
+!.env.example
+.probe/
+*.key
+*.pem
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+.coverage.*
+dist/
+build/
+
+# 目标 Java 仓的构建产物（若仓被挂载进开发目录）
+target/
+*.class
+*.jar
+
+# 图布局临时产物
+*.dot.png.tmp
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
