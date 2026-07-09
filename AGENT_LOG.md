@@ -7,9 +7,9 @@
 | Task | 状态 | implementer commit | reviewer 结论 | 备注 |
 |---|---|---|---|---|
 | T1 scaffold | ✅ | c49c593 | 内联快审✅ | 纯脚手架小 diff，按 model-selection 原则内联审；types/pyproject/Makefile 复核、make test 1 passed；deviation: 加 [build-system] 段（pip install -e . 必需，合理） |
-| T2 config | ⏳ | — | — | |
-| T3 credentials | ⏳ | — | — | |
-| T4 llm_base+mock | ⏳ | — | — | |
+| T2 config | ✅ | c6eef08 | 内联快审✅ | pydantic Config + load(path|None,env)；4 passed；dangerous_patterns 表按 §3.8 扩充(含路径越界/网络/破坏性SQL)，T10 可复用 |
+| T3 credentials | ✅ | 4032ece | 内联快审✅ | keychain/file backend + mask；8 passed；file 后端原子写+chmod600；keychain 分支只抛 CredentialBackendUnavailable |
+| T4 llm_base+mock | ✅ | 9bc887d | 内联快审✅ | pydantic LLM 抽象 + MockLLM 末帧钳位；9 passed；complete 返回 LLMResponse（修正了 PLAN 元组歧义） |
 | T5 openai_compat | ⏳ | — | — | |
 | T6 toolbase | ⏳ | — | — | |
 | T7 fs | ⏳ | — | — | |
