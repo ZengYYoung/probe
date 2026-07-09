@@ -1,0 +1,9 @@
+from enum import Enum
+
+
+class Status(str, Enum):
+    SUCCESS = "SUCCESS"
+    STOPPED_BUDGET = "STOPPED_BUDGET"
+    BLOCKED_NO_PROGRESS = "BLOCKED_NO_PROGRESS"
+    STOPPED_REJECTED = "STOPPED_REJECTED"
+    ERROR = "ERROR"

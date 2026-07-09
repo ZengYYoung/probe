@@ -1,0 +1,20 @@
+[project]
+name = "probe"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = ["pydantic>=2", "httpx", "keyring", "javalang", "fastapi", "uvicorn"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-cov", "ruff", "mypy", "pyyaml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["integration: needs real LLM/key (deselected by default)"]
+addopts = "-m 'not integration'"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["probe*"]
