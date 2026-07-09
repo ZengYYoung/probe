@@ -43,3 +43,5 @@
 - **2026-07-09** §4.5 冷启动（Codex，不同类型 agent）暴露 D1–D4，修订 SPEC/PLAN，写 SPEC_PROCESS.md（commit 3f93030）；CLAUDE.md 状态更新（9c90c48）
 - **2026-07-09** 起飞前预检修复 5 处 PLAN 不一致（T2/T11/T15/T16/T25-T28）
 - **2026-07-09** 开始 subagent-driven-development 实现
+- **2026-07-09** T1–T29 全部实现完毕（29 task，每 task 一个 implementer subagent + 内联快审/独立 reviewer；T17/T18/T23/T27 用独立 reviewer）。共 113 测试全绿。关键 PLAN 缺陷被 subagent 当场抓出并修正：T9 `Action` content 顶层 kwarg、T16 短路与合并互斥、T21 `CodeGraph` 位置参数、T26 `creds_status` 断言与 mask 末 4 不符。
+- **2026-07-09** 整支 code review（横切）APPROVED：A.4 自实现✅(无框架)、机制代码化✅、凭据安全✅(无真实 key)、集成✅、测试非空断言✅、路径围栏✅、pydantic 一致✅。Important(非阻塞)：`RunShell shell=True` 仅靠 Guardrail 单一围栏，记为已知限制/加固项。
