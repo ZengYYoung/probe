@@ -6,7 +6,7 @@
 
 | Task | 状态 | implementer commit | reviewer 结论 | 备注 |
 |---|---|---|---|---|
-| T1 scaffold | ⏳ | — | — | |
+| T1 scaffold | ✅ | c49c593 | 内联快审✅ | 纯脚手架小 diff，按 model-selection 原则内联审；types/pyproject/Makefile 复核、make test 1 passed；deviation: 加 [build-system] 段（pip install -e . 必需，合理） |
 | T2 config | ⏳ | — | — | |
 | T3 credentials | ⏳ | — | — | |
 | T4 llm_base+mock | ⏳ | — | — | |

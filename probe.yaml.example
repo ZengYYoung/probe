@@ -1,0 +1,44 @@
+# probe.yaml.example — Probe 配置示例（无真实凭据）
+# 所有字段均可缺省；缺字段用 probe/config.py 的文档化默认值。
+# 环境变量（PROBE_ 前缀）覆盖对应字段，见 probe/config.py::_apply_env_overrides。
+
+# ── 预算（SPEC §3.5 / §3.6） ──────────────────────────────
+budgets:
+  max_iterations: 10          # 单任务最大迭代轮数；env: PROBE_MAX_ITERATIONS
+  max_shell_seconds: 600      # 单条 shell 命令超时；env: PROBE_MAX_SHELL_SECONDS
+  max_tokens: 50000           # 单轮 LLM token 上限；env: PROBE_MAX_TOKENS
+
+# ── 无进展检测（SPEC §3.6） ───────────────────────────────
+no_progress_rounds: 3         # 连续 K 轮无进展→BLOCKED_NO_PROGRESS；env: PROBE_NO_PROGRESS_ROUNDS
+
+# ── 治理 / Guardrail（SPEC §3.8） ─────────────────────────
+guardrails:
+  # 危险动作关键字串表（子串匹配即 Block）；Config 可覆盖
+  dangerous_patterns:
+    - "rm -rf"
+    - "git push --force"
+    - "git push --force-with-lease"
+    - "mvn deploy"
+    - "rm -rf .git"
+    - ".git/"
+    - "../../"                # 路径越界（写 target_repo 之外）
+    - "curl "                 # 网络外联
+    - "wget "
+    - "nc "
+    - "DROP "                 # 破坏性 SQL
+    - "TRUNCATE "
+    - "DELETE FROM"
+    - "sudo "
+  # 允许写入的路径白名单（空=受 target_repo 围栏约束）
+  allowed_paths: []
+
+# ── 校验流水线（SPEC §3.4） ───────────────────────────────
+validators:
+  compile: true
+  test: true
+  lint: true
+
+# ── LLM（SPEC §3.2） ──────────────────────────────────────
+llm:
+  model: "glm-5.2"            # env: PROBE_LLM_MODEL
+  temperature: 0.2            # env: PROBE_LLM_TEMPERATURE
