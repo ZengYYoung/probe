@@ -26,9 +26,9 @@
 | T18 self_corrector | ✅ | 42f550c | 独立 reviewer APPROVED | 判据顺序 SUCCESS→BUDGET→NO_PROGRESS→CONTINUE；history[-K:].count；68 passed；reviewer 确认纯函数无 mutate |
 | T19 codemap_graph | ✅ | bc1b7ac | 内联快审✅ | javalang 建图+extends/implements/associates/depends/imports 边+mtime 增量缓存+解析异常跳过；71 passed |
 | T20 retriever | ✅ | 2b8df18 | 内联快审✅ | dependents/dependencies/affected_set BFS 反向闭包/responsibility 启发式；75 passed |
-| T21 renderer | ⏳ | — | — | |
-| T22 memory | ⏳ | — | — | |
-| T23 agentloop | ⏳ | — | — | |
+| T21 renderer | ✅ | 2f0379c | 内联快审✅ | 包图(聚合)/类图(extends实线+implements虚线) DOT + layout(dot)；79 passed；**PLAN 笔误**：CodeGraph 位置参数→关键字(pydantic v2) |
+| T22 memory | ✅ | f54b7a7 | 内联快审✅ | Memory JSON 存(.probe/memory.json)，append/recent/conventions；84 passed；自实现不接框架 |
+| T23 agentloop | ✅ | fd58444 | 独立 reviewer APPROVED | 自实现 while 循环串全链路+停机映射+guardrail 不执行危险动作；88 passed；Minor: pipeline changed_files=None/_build_tools 空/异常吞(后续改进) |
 | T24 report | ⏳ | — | — | |
 | T25 web | ⏳ | — | — | |
 | T26 cli | ⏳ | — | — | |
