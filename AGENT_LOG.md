@@ -29,9 +29,9 @@
 | T21 renderer | ✅ | 2f0379c | 内联快审✅ | 包图(聚合)/类图(extends实线+implements虚线) DOT + layout(dot)；79 passed；**PLAN 笔误**：CodeGraph 位置参数→关键字(pydantic v2) |
 | T22 memory | ✅ | f54b7a7 | 内联快审✅ | Memory JSON 存(.probe/memory.json)，append/recent/conventions；84 passed；自实现不接框架 |
 | T23 agentloop | ✅ | fd58444 | 独立 reviewer APPROVED | 自实现 while 循环串全链路+停机映射+guardrail 不执行危险动作；88 passed；Minor: pipeline changed_files=None/_build_tools 空/异常吞(后续改进) |
-| T24 report | ⏳ | — | — | |
-| T25 web | ⏳ | — | — | |
-| T26 cli | ⏳ | — | — | |
+| T24 report | ✅ | 30450a9 | 内联快审✅ | render_markdown/render_json；92 passed |
+| T25 web | ✅ | 9002ee7 | 内联快审✅ | FastAPI create_app+6 端点+cytoscape 占位前端；96 passed；fixture _FakeLoop repo 默认修正 |
+| T26 cli | ✅ | 6c938cb | 内联快审✅ | argparse init/run/map/creds + __main__；100 passed；Minor: PLAN 断言 XYZ1234(7) 与 mask 末4 不符→cli 本地 _status_mask 绕过(待清理) |
 | T27 demo | ⏳ | — | — | |
 | T28 dockerfile+ci | ⏳ | — | — | |
 | T29 readme+deploy | ⏳ | — | — | |
