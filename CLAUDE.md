@@ -145,12 +145,12 @@
 
 - [x] 读完通用要求 + A 类专属要求，建立本一致性基准。
 - [x] 确认开发智能体 = Claude Code，Superpowers v6.1.1 已安装启用。
-- [ ] 初始化 git 仓库（当前工作目录非 git 仓库）。**GitHub 账号暂未登录 → 先本地 `git init`，全流程本地跑；账号恢复后再加 remote 推送。**
-- [ ] CI 配置（`.gitlab-ci.yml` 含 `unit-test` job）与"最后一次 CI pass"是最终交付硬要求，**可后补**：先靠本地 `make test`，有 remote 后再补 CI 并让它 pass。不阻塞 brainstorming / TDD / 评审。
-- [ ] 启动 `brainstorming` 技能，与智能体共同设计，沉淀 `SPEC.md`。
-- [ ] `writing-plans` 产出 `PLAN.md`。
-- [ ] 冷启动验证（换第二个 agent），记录到 `SPEC_PROCESS.md`。
-- [ ] 进入实现：worktree + subagent + TDD + 两阶段评审。
+- [x] 初始化 git 仓库（本地 `main`）。GitHub 账号暂未登录 → 全流程本地跑；账号恢复后再加 remote 推送。
+- [x] CI 配置（`.gitlab-ci.yml` 含 `unit-test` job）与"最后一次 CI pass"为最终交付硬要求，可后补。
+- [x] brainstorming → `SPEC.md`（Probe: Java 可行性验证 harness；重点=反馈闭环，次要=代码地图）。
+- [x] writing-plans → `PLAN.md`（29 个 TDD task）。
+- [x] 冷启动验证（§4.5）：用 **Codex**（不同类型 agent）零背景跑 T12+T17，暴露 4 个缺陷（D1 多余 import / D2 分类规则优先级与 validator 消歧未定 / D3 pydantic 未钉死 / D4 classify_report mutate），已修订 SPEC/PLAN 并写 `SPEC_PROCESS.md`。证据分支 `coldstart/codex` 保留不合入。
+- [ ] 进入实现：`subagent-driven-development` —— 每个 task 派新鲜 subagent + 两阶段评审 + worktree。每个独立功能链开一个 worktree 对应一个 PR（见 PLAN 依赖图：tools/guardrail/validators/codemap 四链可并行）。
 - [ ] 分发、WebUI、部署、CI、反思。
 
 > 工作纪律：凡涉及"做什么 / 做对了吗"的判断，由我（学生）主导；Superpowers 守住"怎么做"的流程脚手架。不要把题目原封不动交给智能体再把结果原封不动交上来。
