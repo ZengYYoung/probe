@@ -32,9 +32,9 @@
 | T24 report | ✅ | 30450a9 | 内联快审✅ | render_markdown/render_json；92 passed |
 | T25 web | ✅ | 9002ee7 | 内联快审✅ | FastAPI create_app+6 端点+cytoscape 占位前端；96 passed；fixture _FakeLoop repo 默认修正 |
 | T26 cli | ✅ | 6c938cb | 内联快审✅ | argparse init/run/map/creds + __main__；100 passed；Minor: PLAN 断言 XYZ1234(7) 与 mask 末4 不符→cli 本地 _status_mask 绕过(待清理) |
-| T27 demo | ⏳ | — | — | |
-| T28 dockerfile+ci | ⏳ | — | — | |
-| T29 readme+deploy | ⏳ | — | — | |
+| T27 demo | ✅ | 45ee033 | 独立 reviewer APPROVED | A.6 三机制演示(护栏/反馈闭环/无进展)；103 passed；**Important(不阻塞)**：反馈"据此改变"因果在 offline MockLLM 下无法严格证明(MockLLM 忽略输入)，反馈接线真实但因果靠脚本；测试断言过弱；记入 REFLECTION |
+| T28 dockerfile+ci | ✅ | 9b28c83 | 内联快审✅ | Dockerfile(JDK+Maven+graphviz)+.gitlab-ci.yml(unit-test+build-image)+.dockerignore；108 passed；docker build 待手动验证(daemon 未运行) |
+| T29 readme+deploy | ✅ | bc8d801 | 内联快审✅ | README 六章节+docker run+make test+安全边界+已知限制+许可证；.env.example 无真实 key；fly.toml；113 passed |
 
 ## 时间线
 
