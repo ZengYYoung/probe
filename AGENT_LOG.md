@@ -23,9 +23,9 @@
 | T15 lint | ✅ | c5694b8 | 内联快审✅ | LintValidator 解析 checkstyle-result.xml；54 passed；产物缺失/runner异常→UNAVAILABLE |
 | T16 pipeline | ✅ | c48435c | 内联快审✅ | ValidatorPipeline 短路+合并重算 signature+config 门控 lint；57 passed；**PLAN 矛盾**：test3 与短路互斥→方案1 改 compile PASS；pydantic 位置参数→关键字 |
 | T17 classifier | ✅ | 7b316c1 | 独立 reviewer APPROVED | 冷启动修正版落地：validator 消歧+特化优先+不可变；63 passed；reviewer 确认规则顺序与不可变性；Minor: 冗余测试/缺 summary 断言(不阻塞) |
-| T18 self_corrector | ⏳ | — | — | |
-| T19 codemap_graph | ⏳ | — | — | |
-| T20 retriever | ⏳ | — | — | |
+| T18 self_corrector | ✅ | 42f550c | 独立 reviewer APPROVED | 判据顺序 SUCCESS→BUDGET→NO_PROGRESS→CONTINUE；history[-K:].count；68 passed；reviewer 确认纯函数无 mutate |
+| T19 codemap_graph | ✅ | bc1b7ac | 内联快审✅ | javalang 建图+extends/implements/associates/depends/imports 边+mtime 增量缓存+解析异常跳过；71 passed |
+| T20 retriever | ✅ | 2b8df18 | 内联快审✅ | dependents/dependencies/affected_set BFS 反向闭包/responsibility 启发式；75 passed |
 | T21 renderer | ⏳ | — | — | |
 | T22 memory | ⏳ | — | — | |
 | T23 agentloop | ⏳ | — | — | |
