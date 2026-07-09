@@ -21,8 +21,8 @@
 | T13 compile | ✅ | 4b8adf2 | 内联快审✅ | CompileValidator 解析 javac `[ERROR] file:[line] error:`；47 passed；runner 注入；UNAVAILABLE 分支 |
 | T14 testval | ✅ | d3d2a7a | 内联快审✅ | TestValidator 解析 surefire TEST-*.xml(failure/error/skipped)；51 passed；__test__=False 抑制 pytest 误收 |
 | T15 lint | ✅ | c5694b8 | 内联快审✅ | LintValidator 解析 checkstyle-result.xml；54 passed；产物缺失/runner异常→UNAVAILABLE |
-| T16 pipeline | ⏳ | — | — | |
-| T17 classifier | ⏳ | — | — | |
+| T16 pipeline | ✅ | c48435c | 内联快审✅ | ValidatorPipeline 短路+合并重算 signature+config 门控 lint；57 passed；**PLAN 矛盾**：test3 与短路互斥→方案1 改 compile PASS；pydantic 位置参数→关键字 |
+| T17 classifier | ✅ | 7b316c1 | 独立 reviewer APPROVED | 冷启动修正版落地：validator 消歧+特化优先+不可变；63 passed；reviewer 确认规则顺序与不可变性；Minor: 冗余测试/缺 summary 断言(不阻塞) |
 | T18 self_corrector | ⏳ | — | — | |
 | T19 codemap_graph | ⏳ | — | — | |
 | T20 retriever | ⏳ | — | — | |
