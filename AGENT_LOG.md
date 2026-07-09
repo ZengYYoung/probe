@@ -15,8 +15,8 @@
 | T7 fs | ✅ | 3befe10 | 内联快审✅ | Read/Write/Patch/ListFiles + safe_path 透传 PermissionError；21 passed |
 | T8 shell | ✅ | 5492295 | 内联快审✅ | RunShell subprocess+timeout meta；25 passed |
 | T9 registry | ✅ | f65e1f9 | 内联快审✅ | ToolRegistry.for_repo+dispatch；29 passed；**PLAN 笔误**：T9 测试把 content 当 Action 顶层 kwarg（pydantic 丢 extra）→ 改用 params={"content":..}（与 T5 一致），PLAN 文本待同步 |
-| T10 guardrail | ⏳ | — | — | |
-| T11 hitl | ⏳ | — | — | |
+| T10 guardrail | ✅ | 2ed40eb | 内联快审✅ | guardrail(action,cfg) 纯函数+Verdict；36 passed；文件类越界保守静态判定(绝对/含..)，safe_path 兜底 |
+| T11 hitl | ✅ | bb16a67 | 内联快审✅ | State/Event str Enum + transition 纯函数非法抛 ValueError；40 passed；blocked 保留枚举无入迁移(后续扩展) |
 | T12 valbase | ⏳ | — | — | |
 | T13 compile | ⏳ | — | — | |
 | T14 testval | ⏳ | — | — | |
