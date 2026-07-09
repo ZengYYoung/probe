@@ -207,7 +207,7 @@ def tmp_repo(tmp_path):
 **Files:** Create: `probe/config.py`, `probe.yaml.example`; Test: `tests/test_config.py`
 **Interfaces:**
 - Consumes: `probe/core/types.py`
-- Produces: `Config` dataclass，方法 `Config.load(path: Path, env: dict) -> Config`；字段见 SPEC §3.11。
+- Produces: `Config` pydantic BaseModel，方法 `Config.load(path: Path|None, env: dict) -> Config`（`path=None`→全默认，供测试与无配置文件场景）；字段见 SPEC §3.11。
 
 - [ ] **Step 1: 失败测试** — `tests/test_config.py`
 ```python
@@ -451,7 +451,7 @@ def test_blocks_path_escape():
 
 **Files:** Create: `probe/guardrail/hitl.py`; Test: `tests/guardrail/test_hitl.py`
 **Interfaces:**
-- Produces: `State` 枚举（`idle/proposing/awaiting_approval/executing/verifying/blocked/done/rejected`）、`Event` 枚举、`transition(state, event)->State` 纯函数（非法迁移→`ERROR` 复用 core.types.Status）。
+- Produces: `State` 枚举（`idle/proposing/awaiting_approval/executing/verifying/blocked/done/rejected`）、`Event` 枚举、`transition(state, event)->State` 纯函数（非法迁移抛 `ValueError`）。
 
 - [ ] **Step 1: 失败测试** — `tests/guardrail/test_hitl.py`
 ```python
@@ -563,21 +563,24 @@ def test_parses_failure(tmp_path):
 **Files:** Create: `probe/validators/lint.py`; Test: `tests/validators/test_lint.py`
 **Interfaces:**
 - Consumes: `probe/validators/base.py`
-- Produces: `LintValidator`，解析 checkstyle XML `<file><error line="" message="" source=""/></file>`。
+- Produces: `LintValidator(runner)`，`run(repo, changed_files=None)` 调 runner 跑 checkstyle，再读 `repo/target/checkstyle-result.xml` 解析 `<file><error line="" message="" source=""/></file>`（与 T13/T14 同为 runner 注入、从产物文件解析）。
 
 - [ ] **Step 1: 失败测试** — `tests/validators/test_lint.py`
 ```python
 from probe.validators.lint import LintValidator
+from probe.validators.base import Category
 CS = '''<?xml version="1.0"?><checkstyle version="8.0">
 <file name="/src/Main.java"><error line="3" column="5" severity="error" message="Missing Javadoc" source="JavadocMethod"/></file></checkstyle>'''
-def test_parses_violation():
+def test_parses_violation(tmp_path):
+    d = tmp_path/"target"; d.mkdir()
+    (d/"checkstyle-result.xml").write_text(CS)
     v = LintValidator(runner=lambda cmd:(0,"",""))
-    r = v.run(repo="/repo", report_xml=CS)
-    assert r.failures[0].category == "LINT_VIOLATION"
+    r = v.run(repo=str(tmp_path))
+    assert r.failures[0].category == Category.LINT_VIOLATION
     assert r.failures[0].line == 3 and "JavadocMethod" in r.failures[0].raw
 ```
 - [ ] **Step 2: 验证红**
-- [ ] **Step 3: 实现** — `lint.py`：解析 checkstyle XML；每 `<error>`→`Failure(category=LINT_VIOLATION, severity=severity, hint="规则 "+source)`。
+- [ ] **Step 3: 实现** — `lint.py`：`run` 调 runner 跑 `mvn checkstyle:check`，读 `repo/target/checkstyle-result.xml`；每 `<error>`→`Failure(category=LINT_VIOLATION, severity=severity, hint="规则 "+source, raw=source)`。
 - [ ] **Step 4: 验证绿**
 - [ ] **Step 5: Commit** — `feat: LintValidator checkstyle XML 解析`
 
@@ -588,7 +591,7 @@ def test_parses_violation():
 **Files:** Create: `probe/validators/pipeline.py`; Test: `tests/validators/test_pipeline.py`
 **Interfaces:**
 - Consumes: Compile/Test/Lint Validator, Config
-- Produces: `ValidatorPipeline(validators, config)`，`run(repo, changed_files?)` 顺序跑，Compile FAIL 短路 Test，Lint 总跑；合并 `FailureReport`。
+- Produces: `ValidatorPipeline(compile_v, test_v, lint_v, config=None)`，`run(repo, changed_files?)` 顺序跑，Compile FAIL 短路 Test，Lint 总跑；合并 `FailureReport`。
 
 - [ ] **Step 1: 失败测试** — `tests/validators/test_pipeline.py`
 ```python
@@ -929,7 +932,7 @@ def test_md_lists_failure_with_hint():
 **Files:** Create: `probe/web/__init__.py`, `probe/web/app.py`, `probe/web/static/index.html`; Test: `tests/web/test_app.py`
 **Interfaces:**
 - Consumes: AgentLoop, CodeMap renderer, ReportRenderer
-- Produces: `create_app(loop_factory) -> FastAPI`，端点 `POST /tasks`（启动）、`GET /tasks/{id}/stream`（SSE 步骤流）、`GET /tasks/{id}/report`、`GET /map/package.dot`、`GET /map/class.dot?package=`、`POST /tasks/{id}/approve`。
+- Produces: `create_app(loop_factory=None) -> FastAPI`（`loop_factory=None`→默认真实 AgentLoop 工厂），端点 `POST /tasks`（启动）、`GET /tasks/{id}/stream`（SSE 步骤流）、`GET /tasks/{id}/report`、`GET /map/package.dot`、`GET /map/class.dot?package=`、`POST /tasks/{id}/approve`。
 
 - [ ] **Step 1: 失败测试** — `tests/web/test_app.py`
 ```python
@@ -1032,7 +1035,7 @@ RUN pip install --no-cache-dir -e ".[dev]"
 COPY probe ./probe
 COPY demo_mechanisms.py ./
 EXPOSE 8000
-CMD ["uvicorn", "probe.web.app:create_app_factory", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "probe.web.app:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000"]
 ```
 `.gitlab-ci.yml`：
 ```yaml
