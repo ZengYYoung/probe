@@ -10,11 +10,11 @@
 | T2 config | ✅ | c6eef08 | 内联快审✅ | pydantic Config + load(path|None,env)；4 passed；dangerous_patterns 表按 §3.8 扩充(含路径越界/网络/破坏性SQL)，T10 可复用 |
 | T3 credentials | ✅ | 4032ece | 内联快审✅ | keychain/file backend + mask；8 passed；file 后端原子写+chmod600；keychain 分支只抛 CredentialBackendUnavailable |
 | T4 llm_base+mock | ✅ | 9bc887d | 内联快审✅ | pydantic LLM 抽象 + MockLLM 末帧钳位；9 passed；complete 返回 LLMResponse（修正了 PLAN 元组歧义） |
-| T5 openai_compat | ⏳ | — | — | |
-| T6 toolbase | ⏳ | — | — | |
-| T7 fs | ⏳ | — | — | |
-| T8 shell | ⏳ | — | — | |
-| T9 registry | ⏳ | — | — | |
+| T5 openai_compat | ✅ | 24a5015 | 内联快审✅ | OpenAICompatibleClient + _post 隔离；12 passed；异常 LLMError/LLMAuthError 放本文件；5xx重试路径未单测(YAGNI) |
+| T6 toolbase | ✅ | 68465a8 | 内联快审✅ | ToolResult(pydantic)+Tool ABC+safe_path 围栏；16 passed；复用现有 Action 不重定义 |
+| T7 fs | ✅ | 3befe10 | 内联快审✅ | Read/Write/Patch/ListFiles + safe_path 透传 PermissionError；21 passed |
+| T8 shell | ✅ | 5492295 | 内联快审✅ | RunShell subprocess+timeout meta；25 passed |
+| T9 registry | ✅ | f65e1f9 | 内联快审✅ | ToolRegistry.for_repo+dispatch；29 passed；**PLAN 笔误**：T9 测试把 content 当 Action 顶层 kwarg（pydantic 丢 extra）→ 改用 params={"content":..}（与 T5 一致），PLAN 文本待同步 |
 | T10 guardrail | ⏳ | — | — | |
 | T11 hitl | ⏳ | — | — | |
 | T12 valbase | ⏳ | — | — | |
