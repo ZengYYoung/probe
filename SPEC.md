@@ -62,10 +62,11 @@
 - Lint：`mvn checkstyle:check`（或 checkstyle jar），解析 checkstyle XML 的 `<file><error line="" column="" severity="" message="" source=""/>`。
 
 ### 3.5 FailureClassifier（重点深度，纯函数）
-- 输入：单条 raw failure（来自某 validator 的解析产物）。
-- 行为：按确定性规则映射到 `category` + 生成 `hint`。
+- 输入：单条 `Failure`（含 `validator` 字段）。
+- 行为：按**有序规则表**映射到 `category` + 生成 `hint`。规则模型 = `(validator_scope: str|None, pattern: str, category, hint)`；一条规则匹配当且仅当 `validator_scope is None or validator_scope == failure.validator` **且** `pattern`（正则、大小写不敏感）在 `"{message} {raw}"` 中命中。规则按表内顺序逐一检查，**首条匹配胜出**；无匹配 → `UNKNOWN` + 保留原文。
+- **规则优先级（冷启动修正）**：必须先按 `validator` 字段消歧——`validator="test"` 的失败只在 `TEST_*` 类别中匹配，`validator="compile"` 只在 `COMPILE_*`/`DEPENDENCY_MISSING`/`BUILD_CONFIG_ERROR` 中匹配，`validator="lint"` 只在 `LINT_VIOLATION` 中匹配。**更具体的 pattern 必须排在更泛化的 pattern 之前**（例：`expected.*but was` 必须排在 `expected` 之前），避免泛化规则吞掉特化规则。
 - 输出：`(category, hint)`，category 见 §6 taxonomy。
-- 边界：纯函数，无 LLM、无 IO、无随机；同输入恒同输出。
+- 边界：纯函数，无 LLM、无 IO、无随机；同输入恒同输出；`classify` 与 `classify_report` 均**不得 mutate 入参**（`classify_report` 返回新的 `FailureReport` 与新的 `Failure` 对象）。
 - 错误处理：无法分类→`UNKNOWN` + 保留原文，不抛异常。
 
 ### 3.6 SelfCorrector（闭环核心，确定性）
@@ -204,6 +205,8 @@ Edge{kind: "extends"|"implements"|"associates"|"depends"|"imports"|"calls", src,
 RunResult{status, steps: list[Step], final_failure_report, report_path}
 Step{iteration, action, tool_result, failure_report?, decision}
 ```
+
+> 全部数据模型用 **pydantic v2 `BaseModel`**（统一校验与 JSON 序列化，供 WebUI/API 直接消费）；`Category`/`Status`/`State` 用 `str` Enum。`Failure`/`FailureReport` 等值对象不得用 `dataclass` 替代。
 
 ## 7. 凭据与分发设计
 

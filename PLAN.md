@@ -485,7 +485,6 @@ def test_illegal_transition_raises():
 - [ ] **Step 1: 失败测试** — `tests/validators/test_base.py`
 ```python
 from probe.validators.base import Failure, FailureReport, signature, Category
-from probe.tools.base import Action
 def test_signature_stable_regardless_of_order():
     f1 = Failure(validator="test",severity="error",file="A.java",line=3,
         category=Category.TEST_FAILURE,message="x",raw="",hint="h")
@@ -497,7 +496,7 @@ def test_empty_report_passes():
     assert r.failures == []
 ```
 - [ ] **Step 2: 验证红**
-- [ ] **Step 3: 实现** — `base.py`：pydantic 模型；`signature` 排序 `f"{f.category}|{f.file}|{f.line}|{f.message}"` 后 `hashlib.sha1`。
+- [ ] **Step 3: 实现** — `base.py`：用 **pydantic v2 `BaseModel`**（不得用 `dataclass`，与 SPEC §6 一致）定义 `Category`(`str` Enum)、`Failure`、`FailureReport`、`Validator` ABC；`signature` 排序 `f"{f.category}|{f.file}|{f.line}|{f.message}"` 后 `hashlib.sha1`。
 - [ ] **Step 4: 验证绿**
 - [ ] **Step 5: Commit** — `feat: Validator 基类与 FailureReport signature`
 
@@ -623,30 +622,75 @@ def test_compile_fail_shortcircuits_test():
 **Files:** Create: `probe/validators/classifier.py`; Test: `tests/validators/test_classifier.py`
 **Interfaces:**
 - Consumes: `probe/validators/base.py`
-- Produces: `classify(failure: Failure) -> tuple[Category, str]` 纯函数；`classify_report(report) -> FailureReport`（就地填 category/hint，重算 signature）。
+- Produces: `classify(failure: Failure) -> tuple[Category, str]` 纯函数；`classify_report(report: FailureReport) -> FailureReport`（返回**新对象**，不 mutate 入参与其中 `Failure`；重算 `signature`/`summary`）。
 
 - [ ] **Step 1: 失败测试** — `tests/validators/test_classifier.py`
 ```python
-from probe.validators.classifier import classify
-from probe.validators.base import Failure, Category
-def test_cannot_find_symbol():
+from probe.validators.classifier import classify, classify_report
+from probe.validators.base import Failure, FailureReport, Category, signature
+
+def test_cannot_find_symbol_compile():
     f = Failure(validator="compile",severity="error",file="A",line=1,
         category=Category.UNKNOWN,message="cannot find symbol",raw="",hint="")
-    cat, hint = classify(f)
-    assert cat == Category.COMPILE_MISSING_SYMBOL
-def test_assertion_failure():
+    assert classify(f)[0] == Category.COMPILE_MISSING_SYMBOL
+
+def test_assertion_failure_uses_validator_field():
+    # 冷启动修正：validator="test" + "expected [1] but was [2]" → TEST_FAILURE
+    # （不得被泛化 "expected" 误判为 COMPILE_SYNTAX）
     f = Failure(validator="test",severity="error",file="A",line=1,
         category=Category.UNKNOWN,message="expected [1] but was [2]",raw="",hint="")
     assert classify(f)[0] == Category.TEST_FAILURE
+
+def test_validator_field_disambiguates_same_text():
+    # 同样文本 "expected" 出现在 compile 与 test 下, 应按 validator 字段分流
+    fc = Failure(validator="compile",severity="error",file="A",line=1,
+        category=Category.UNKNOWN,message="expected ;",raw="",hint="")
+    ft = Failure(validator="test",severity="error",file="A",line=1,
+        category=Category.UNKNOWN,message="expected",raw="",hint="")
+    assert classify(fc)[0] != Category.TEST_FAILURE  # compile 不会落到 test 类
+    assert classify(ft)[0] in (Category.TEST_FAILURE, Category.TEST_ERROR, Category.UNKNOWN)
+
+def test_specific_pattern_beats_generic():
+    # "expected.*but was" 必须排在 "expected" 之前
+    f = Failure(validator="test",severity="error",file="A",line=1,
+        category=Category.UNKNOWN,message="expected [1] but was [2]",raw="",hint="")
+    assert classify(f)[0] == Category.TEST_FAILURE
+
 def test_unknown_stays_unknown():
     f = Failure(validator="x",severity="error",file="A",line=1,
         category=Category.UNKNOWN,message="weird stuff",raw="",hint="")
     assert classify(f)[0] == Category.UNKNOWN
+
+def test_classify_report_does_not_mutate_input():
+    f = Failure(validator="compile",severity="error",file="A",line=1,
+        category=Category.UNKNOWN,message="cannot find symbol",raw="",hint="")
+    report = FailureReport(per_validator_status={"compile":"FAIL"},
+        failures=[f], signature="old", summary={})
+    orig_sig = report.signature
+    orig_cat = report.failures[0].category
+    updated = classify_report(report)
+    assert report.signature == orig_sig          # 入参未变
+    assert report.failures[0].category == orig_cat
+    assert updated is not report
+    assert updated.failures[0].category == Category.COMPILE_MISSING_SYMBOL
+    assert updated.signature == signature(updated.failures)
 ```
-- [ ] **Step 2: 验证红**
-- [ ] **Step 3: 实现** — `classifier.py`：规则表（按 message/validator 关键字）：`cannot find symbol`→COMPILE_MISSING_SYMBOL；`error:`/`expected`→...；`<failure>` validator=test+`expected...but was`→TEST_FAILURE；`<error>`→TEST_ERROR；`Could not resolve`→DEPENDENCY_MISSING；checkstyle source→LINT_VIOLATION；超时→TIMEOUT；其余 UNKNOWN。纯函数。
-- [ ] **Step 4: 验证绿**
-- [ ] **Step 5: Commit** — `feat: FailureClassifier taxonomy`
+- [ ] **Step 2: 验证红** — `make test` → FAIL
+- [ ] **Step 3: 实现** — `classifier.py`：有序规则表，每条 `(validator_scope: str|None, pattern: str, category, hint)`。`classify` 对 `validator_scope`（`None` 表任意）相等且 `pattern`（`re`，`IGNORECASE`）在 `"{message} {raw}"` 命中者，按表内顺序首条胜出；无匹配→`(UNKNOWN, message)`。规则须**特化在前、泛化在后**，且按 `validator` 字段消歧（compile 范畴只含 `COMPILE_*`/`DEPENDENCY_MISSING`/`BUILD_CONFIG_ERROR`，test 范畴只含 `TEST_*`，lint 范畴只含 `LINT_VIOLATION`）。参考顺序：
+  - `("compile","cannot find symbol",COMPILE_MISSING_SYMBOL,"检查 import/声明")`
+  - `("compile","error:",COMPILE_SYNTAX,"语法错误")`
+  - `("test","expected.*but was",TEST_FAILURE,"断言不符：核对 actual vs expected")`
+  - `("test","AssertionError",TEST_FAILURE,"断言失败")`
+  - `("test","<error>|Exception",TEST_ERROR,"测试抛异常")`
+  - `("test","disabled|@Disabled|skipped",TEST_MISSING,"测试未运行")`
+  - `("compile","Could not resolve",DEPENDENCY_MISSING,"检查 pom 依赖坐标")`
+  - `("lint",".",LINT_VIOLATION,"按 checkstyle 规则 id 修正")`（lint 的 `Failure.raw` 含规则 id）
+  - `(None,"timed?out|timeout",TIMEOUT,"增大超时或缩小范围")`
+  - `(None,"BUILD.*FAILURE|pom|build\\.xml",BUILD_CONFIG_ERROR,"检查构建配置")`
+  - 其余→`UNKNOWN`。
+  `classify_report` 深拷贝 `failures`（新 `Failure` 对象）、重算 `signature`/`summary`、返回新 `FailureReport`。
+- [ ] **Step 4: 验证绿** — `make test` → PASS（含 6 个用例）
+- [ ] **Step 5: Commit** — `feat: FailureClassifier taxonomy（validator 消歧 + 特化优先 + 不可变）`
 
 > 重构：Task 13/14/15 中各 validator 的本地 category 判定改为调 `classify`，DRY。
 
