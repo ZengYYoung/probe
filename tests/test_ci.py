@@ -22,3 +22,9 @@ def test_dockerignore_excludes_secrets():
     di = open(".dockerignore").read()
     assert ".env" in di
     assert ".git" in di
+
+def test_github_actions_has_unit_test_job():
+    gha = yaml.safe_load(open(".github/workflows/ci.yml"))
+    assert "unit-test" in gha["jobs"]
+    assert "pytest" in str(gha["jobs"]["unit-test"]["steps"])
+    assert "build-image" in gha["jobs"]
