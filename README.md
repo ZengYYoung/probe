@@ -69,6 +69,13 @@ python demo_mechanisms.py
 
 ## 分发
 
+### 获取源码
+
+```bash
+git clone https://github.com/ZengYYoung/probe.git
+cd probe
+```
+
 ### Docker
 
 ```bash
@@ -76,9 +83,21 @@ docker build -t probe .
 docker run -p 8000:8000 -v "$PWD/.env:/app/.env:ro" probe
 ```
 
-容器内 **Keychain 不可用**，因此 key 必须以只读挂载 `.env` 的方式提供（建议本机 `chmod 600 .env`），或在目标机进入容器后执行 `python -m probe init` 录入。`.env` 为明文文件，进程环境可见，**生产环境请使用平台 secrets**（如 Fly Secrets / GitLab CI variables），不要把真实 `.env` 随镜像一起提交。
+容器内 **Keychain 不可用**，因此 key 必须以只读挂载 `.env` 的方式提供（建议本机 `chmod 600 .env`），或在目标机进入容器后执行 `python -m probe init` 录入。`.env` 为明文文件，进程环境可见，**生产环境请使用平台 secrets**（如 Render Environment / Fly Secrets / GitLab CI variables），不要把真实 `.env` 随镜像一起提交。
 
-### Fly.io
+镜像内置 `demo-repo/`（一个含故意失败测试的小 Maven Java 工程），并设 `PROBE_DEMO_REPO=/app/demo-repo`，因此部署后 `/map/package.dot` 与 `/map/class.dot` 不带 `repo` 参数即可直接渲染内置 demo 仓的结构图。
+
+### Render（推荐：网页连 GitHub 仓，无需 CLI）
+
+1. 注册 https://render.com（免费层即可）。
+2. New → **Web Service** → 连接 GitHub 仓 `ZengYYoung/probe`。
+3. Runtime 选 **Docker**（Render 自动识别 `Dockerfile`）；端口 `8000`。
+4. Environment Variables（可选，仅 `/tasks` 跑真实 agent 时需要）：`LLM_API_KEY`、`LLM_BASE_URL`。
+5. Deploy → 得到公网 URL `https://probe-xxxx.onrender.com`。
+
+部署后验证：访问根 `/` 见 WebUI；`/map/package.dot` 返回 demo 仓包图；`/map/class.dot?package=com.demo` 返回类图。
+
+### Fly.io（备选：有 CLI）
 
 `fly.toml` 已配置：
 
@@ -103,7 +122,7 @@ fly secrets set LLM_API_KEY=... LLM_BASE_URL=...   # 推荐，优于挂载 .env
 
 ### CI
 
-`.gitlab-ci.yml` 的 `unit-test` job 只跑 mock 单测（`pytest -m 'not integration'`），不接触真实 key / LLM。
+GitHub Actions（`.github/workflows/ci.yml`）与 `.gitlab-ci.yml` 均含 `unit-test` job，只跑 mock 单测（`pytest -m 'not integration'`），不接触真实 key / LLM；`build-image` job 验证 Docker 构建。
 
 ## 目录结构
 
