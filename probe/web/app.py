@@ -14,6 +14,7 @@ server is a single-node dev/ops surface, not a clustered service.
 
 from __future__ import annotations
 
+import os
 import uuid
 from pathlib import Path
 from typing import Any, Callable
@@ -37,6 +38,29 @@ from probe.validators.test import TestValidator
 
 _WEB_DIR = Path(__file__).resolve().parent
 _STATIC_DIR = _WEB_DIR / "static"
+
+# When a /map endpoint is hit without an explicit ``repo`` query param,
+# fall back to the built-in demo repo exposed via this env var (set by
+# the Dockerfile to ``/app/demo-repo``). This lets the deployed WebUI
+# show package/class graphs out of the box.
+_DEMO_REPO_ENV = "PROBE_DEMO_REPO"
+
+
+def _resolve_repo(repo: str | None) -> Path:
+    """Pick the repo path: explicit query param, else ``PROBE_DEMO_REPO``.
+
+    Raises :class:`HTTPException` (400) when neither is available so the
+    caller can render the documented error shape.
+    """
+    if repo:
+        return Path(repo)
+    env = os.environ.get(_DEMO_REPO_ENV)
+    if env:
+        return Path(env)
+    raise HTTPException(
+        status_code=400,
+        detail="repo param or PROBE_DEMO_REPO env required",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -177,15 +201,24 @@ def create_app(loop_factory: LoopFactory | None = None) -> FastAPI:
         return ApproveResponse(ok=True)
 
     @app.get("/map/package.dot", response_class=PlainTextResponse)
-    def map_package_dot(repo: str) -> str:
-        """Render the package-level DOT for a repo."""
-        graph = build_graph(Path(repo))
+    def map_package_dot(repo: str | None = None) -> str:
+        """Render the package-level DOT for a repo.
+
+        ``repo`` defaults to ``$PROBE_DEMO_REPO`` so a freshly deployed
+        WebUI can render the built-in demo repo without configuration.
+        """
+        graph = build_graph(_resolve_repo(repo))
         return render_package_dot(graph)
 
     @app.get("/map/class.dot", response_class=PlainTextResponse)
-    def map_class_dot(repo: str, package: str | None = None) -> str:
-        """Render the class-level DOT for a repo, optionally one package."""
-        graph = build_graph(Path(repo))
+    def map_class_dot(
+        repo: str | None = None, package: str | None = None
+    ) -> str:
+        """Render the class-level DOT for a repo, optionally one package.
+
+        ``repo`` defaults to ``$PROBE_DEMO_REPO`` (see ``map_package_dot``).
+        """
+        graph = build_graph(_resolve_repo(repo))
         return render_class_dot(graph, package=package)
 
     return app

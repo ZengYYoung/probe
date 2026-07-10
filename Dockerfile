@@ -6,6 +6,8 @@ WORKDIR /app
 COPY pyproject.toml ./
 COPY probe ./probe
 COPY demo_mechanisms.py ./
+COPY demo-repo ./demo-repo
+ENV PROBE_DEMO_REPO=/app/demo-repo
 RUN pip install --no-cache-dir -e ".[dev]"
 EXPOSE 8000
 CMD ["uvicorn", "probe.web.app:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000"]
