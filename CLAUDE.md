@@ -155,7 +155,7 @@
   - [x] 推送到 GitHub remote：`https://github.com/ZengYYoung/probe.git`，main 已推送。
   - [x] CI 最后一次 pass：GitHub Actions（`.github/workflows/ci.yml`，含 `unit-test` + `build-image` job）已绿；`.gitlab-ci.yml` 保留满足清单第 6 项。
   - [ ] `docker build .` 手动验证（本机 daemon 未运行，待手动）。
-  - [ ] 部署到 Render 取公网 WebUI URL（`fly.toml` 备选；镜像内置 demo-repo，部署后 `/map` 直接可用）。
+  - [x] 部署到 Render 取公网 WebUI URL：https://probe-ho3d.onrender.com —— 已验证 `/`（HTTP 200）、`/map/package.dot`（返回 com.demo 包图）、`/map/class.dot?package=com.demo`（返回 Foo/Bar 类图）实跑正常。镜像内置 demo-repo，次要深度（代码地图）在线上验证。
 - [x] 已知限制（见 REFLECTION §已知限制）：`RunShell shell=True` 仅 Guardrail 单围栏；仅 Maven 深度支持；demo 反馈因果在 offline mock 下无法严格证明。
 
 > 工作纪律：凡涉及"做什么 / 做对了吗"的判断，由我（学生）主导；Superpowers 守住"怎么做"的流程脚手架。不要把题目原封不动交给智能体再把结果原封不动交上来。

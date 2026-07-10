@@ -95,6 +95,8 @@ docker run -p 8000:8000 -v "$PWD/.env:/app/.env:ro" probe
 4. Environment Variables（可选，仅 `/tasks` 跑真实 agent 时需要）：`LLM_API_KEY`、`LLM_BASE_URL`。
 5. Deploy → 得到公网 URL `https://probe-xxxx.onrender.com`。
 
+**本项目线上地址**：https://probe-ho3d.onrender.com
+
 部署后验证：访问根 `/` 见 WebUI；`/map/package.dot` 返回 demo 仓包图；`/map/class.dot?package=com.demo` 返回类图。
 
 ### Fly.io（备选：有 CLI）
