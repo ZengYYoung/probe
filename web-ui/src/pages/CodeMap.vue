@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted, nextTick } from 'vue'
-import { ElMessage } from 'element-plus'
-import { Upload } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Upload, Delete } from '@element-plus/icons-vue'
 import { graphviz } from 'd3-graphviz'
-import { getPackageDot, getClassDot, uploadRepo } from '@/api'
-import { repoStore, addRepo } from '@/stores/repos'
+import { getPackageDot, getClassDot, uploadRepo, deleteRepo } from '@/api'
+import { repoStore, addRepo, removeRepo } from '@/stores/repos'
 
 const repo = ref('')
 const kind = ref<'package' | 'class'>('package')
@@ -26,6 +26,27 @@ async function onUpload(file: File) {
     ElMessage.error('上传失败: ' + (e as Error).message)
   } finally {
     uploading.value = false
+  }
+}
+
+async function onDeleteRepo() {
+  const cur = repoStore.find((r) => r.path === repo.value)
+  if (!cur) {
+    ElMessage.warning('请先选择一个已上传的 repo')
+    return
+  }
+  try {
+    await ElMessageBox.confirm('删除该 repo？解压目录会被清理。', '确认', { type: 'warning' })
+  } catch {
+    return
+  }
+  try {
+    await deleteRepo(cur.repo_id)
+    removeRepo(cur.repo_id)
+    repo.value = ''
+    ElMessage.success('已删除')
+  } catch (e) {
+    ElMessage.error('删除失败: ' + (e as Error).message)
   }
 }
 
@@ -68,7 +89,7 @@ onMounted(() => {
         </el-upload>
       </el-form-item>
       <el-form-item v-if="repoStore.length" label="已上传">
-        <el-select v-model="repo" placeholder="选择 repo" style="width: 240px" @change="render">
+        <el-select v-model="repo" placeholder="选择 repo" style="width: 200px" @change="render">
           <el-option
             v-for="r in repoStore"
             :key="r.repo_id"
@@ -76,6 +97,7 @@ onMounted(() => {
             :value="r.path"
           />
         </el-select>
+        <el-button :icon="Delete" link type="danger" style="margin-left: 8px" @click="onDeleteRepo" />
       </el-form-item>
       <el-form-item label="或路径">
         <el-input v-model="repo" placeholder="留空用内置 demo-repo" style="width: 240px" />

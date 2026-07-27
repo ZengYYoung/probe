@@ -2,9 +2,9 @@
 import { ref, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Upload, Delete, Refresh } from '@element-plus/icons-vue'
-import { submitTask, getReport, getStream, uploadRepo, type RunResult, type Step } from '@/api'
+import { submitTask, getReport, getStream, uploadRepo, deleteRepo, type RunResult, type Step } from '@/api'
 import { taskStore, addTask, updateTaskStatus, removeTask, clearTasks, type TaskRecord } from '@/stores/tasks'
-import { repoStore, addRepo } from '@/stores/repos'
+import { repoStore, addRepo, removeRepo } from '@/stores/repos'
 
 const goal = ref('')
 const targetRepo = ref('')
@@ -43,6 +43,24 @@ async function onUpload(file: File) {
 
 function onRepoSelect(path: string) {
   targetRepo.value = path
+}
+
+async function onDeleteRepo(repoId: string) {
+  try {
+    await ElMessageBox.confirm('删除该 repo？解压目录会被清理。', '确认', { type: 'warning' })
+  } catch {
+    return
+  }
+  try {
+    await deleteRepo(repoId)
+    removeRepo(repoId)
+    if (targetRepo.value && !repoStore.some((r) => r.path === targetRepo.value)) {
+      targetRepo.value = ''
+    }
+    ElMessage.success('已删除')
+  } catch (e) {
+    ElMessage.error('删除失败: ' + (e as Error).message)
+  }
 }
 
 async function onSubmit() {
@@ -149,7 +167,7 @@ onUnmounted(() => {
           v-if="repoStore.length"
           v-model="targetRepo"
           placeholder="选择已上传的 repo"
-          style="width: 100%; margin-top: 8px"
+          style="width: calc(100% - 40px); margin-top: 8px"
           @change="onRepoSelect"
         >
           <el-option
@@ -159,6 +177,14 @@ onUnmounted(() => {
             :value="r.path"
           />
         </el-select>
+        <el-button
+          v-if="repoStore.length"
+          :icon="Delete"
+          link
+          type="danger"
+          style="margin-top: 8px; margin-left: 8px"
+          @click="onDeleteRepo((repoStore.find((r) => r.path === targetRepo) || {}).repo_id)"
+        />
       </el-form-item>
       <el-form-item label="或手动输入路径 (本地开发)">
         <el-input v-model="targetRepo" placeholder="/path/to/java-repo" />

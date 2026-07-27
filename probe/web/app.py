@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import io
 import os
+import shutil
 import tempfile
 import uuid
 import zipfile
@@ -328,5 +329,18 @@ def create_app(loop_factory: LoopFactory | None = None) -> FastAPI:
             "name": r["name"],
             "file_count": r["file_count"],
         }
+
+    @app.delete("/repos/{repo_id}")
+    def delete_repo(repo_id: str) -> dict:
+        """删除 repo：清理解压目录并从内存索引移除。"""
+        r = repos.get(repo_id)
+        if r is None:
+            raise HTTPException(404, "repo not found")
+        try:
+            shutil.rmtree(r["path"], ignore_errors=True)
+        except Exception:
+            pass
+        del repos[repo_id]
+        return {"ok": True, "repo_id": repo_id}
 
     return app

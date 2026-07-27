@@ -109,3 +109,24 @@ def test_get_repo_404():
     c = _client()
     r = c.get("/repos/nonexistent")
     assert r.status_code == 404
+
+
+def test_delete_repo():
+    c = _client()
+    zip_bytes = _make_zip({"pom.xml": "<project/>"})
+    up = c.post("/repos/upload", files={"file": ("a.zip", zip_bytes, "application/zip")}).json()
+    repo_path = up["path"]
+    r = c.delete(f"/repos/{up['repo_id']}")
+    assert r.status_code == 200
+    assert r.json()["ok"] is True
+    # 已从索引移除
+    assert c.get(f"/repos/{up['repo_id']}").status_code == 404
+    # 解压目录已删除
+    import os
+    assert not os.path.exists(repo_path)
+
+
+def test_delete_repo_404():
+    c = _client()
+    r = c.delete("/repos/nonexistent")
+    assert r.status_code == 404

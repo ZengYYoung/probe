@@ -94,3 +94,9 @@ export async function getRepo(repoId: string): Promise<RepoUploadResp> {
   if (!r.ok) throw new Error(`getRepo ${r.status}`)
   return r.json()
 }
+
+export async function deleteRepo(repoId: string): Promise<{ ok: boolean }> {
+  const r = await fetch(`${base}/repos/${repoId}`, { method: 'DELETE' })
+  if (!r.ok) throw new Error(`deleteRepo ${r.status}`)
+  return r.json()
+}

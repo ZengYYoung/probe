@@ -22,3 +22,8 @@ watch(repoStore, (v) => {
 export function addRepo(rec: RepoRecord) {
   repoStore.unshift(rec)
 }
+
+export function removeRepo(repoId: string) {
+  const i = repoStore.findIndex((r) => r.repo_id === repoId)
+  if (i !== -1) repoStore.splice(i, 1)
+}
