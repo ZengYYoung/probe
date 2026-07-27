@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { ElMessage } from 'element-plus'
-import { Upload } from '@element-plus/icons-vue'
+import { ref, onUnmounted } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Upload, Delete, Refresh } from '@element-plus/icons-vue'
 import { submitTask, getReport, getStream, uploadRepo, type RunResult, type Step } from '@/api'
-import { taskStore, addTask, type TaskRecord } from '@/stores/tasks'
+import { taskStore, addTask, updateTaskStatus, removeTask, clearTasks, type TaskRecord } from '@/stores/tasks'
 import { repoStore, addRepo } from '@/stores/repos'
 
 const goal = ref('')
@@ -16,7 +16,10 @@ const current = ref<RunResult | null>(null)
 const currentSteps = ref<Step[]>([])
 const currentRecord = ref<TaskRecord | null>(null)
 
+const pollingTimers: Record<string, ReturnType<typeof setInterval>> = {}
+
 const statusType: Record<string, string> = {
+  RUNNING: 'primary',
   SUCCESS: 'success',
   BLOCKED_NO_PROGRESS: 'danger',
   STOPPED_REJECTED: 'warning',
@@ -55,14 +58,34 @@ async function onSubmit() {
       goal: goal.value,
       target_repo: targetRepo.value,
       submitted_at: new Date().toISOString(),
+      status: 'RUNNING',
     })
-    ElMessage.success(`已提交: ${resp.task_id.slice(0, 8)}…`)
+    ElMessage.success(`已提交，agent 正在后台运行…`)
     goal.value = ''
+    startPolling(resp.task_id)
   } catch (e) {
     ElMessage.error('提交失败: ' + (e as Error).message)
   } finally {
     submitting.value = false
   }
+}
+
+function startPolling(taskId: string) {
+  if (pollingTimers[taskId]) return
+  pollingTimers[taskId] = setInterval(async () => {
+    try {
+      const rep = await getReport(taskId)
+      if (rep.status !== 'RUNNING') {
+        updateTaskStatus(taskId, rep.status)
+        clearInterval(pollingTimers[taskId])
+        delete pollingTimers[taskId]
+        ElMessage.success(`任务 ${taskId.slice(0, 8)}… 完成: ${rep.status}`)
+      }
+    } catch {
+      clearInterval(pollingTimers[taskId])
+      delete pollingTimers[taskId]
+    }
+  }, 2000)
 }
 
 async function viewDetail(rec: TaskRecord) {
@@ -81,6 +104,29 @@ async function viewDetail(rec: TaskRecord) {
     ElMessage.error('加载详情失败: ' + (e as Error).message)
   }
 }
+
+function onDelete(rec: TaskRecord) {
+  removeTask(rec.task_id)
+  if (pollingTimers[rec.task_id]) {
+    clearInterval(pollingTimers[rec.task_id])
+    delete pollingTimers[rec.task_id]
+  }
+}
+
+function onClearAll() {
+  ElMessageBox.confirm('确定清空所有任务历史？', '提示', { type: 'warning' })
+    .then(() => {
+      Object.keys(pollingTimers).forEach(id => clearInterval(pollingTimers[id]))
+      Object.keys(pollingTimers).forEach(id => delete pollingTimers[id])
+      clearTasks()
+      ElMessage.success('已清空')
+    })
+    .catch(() => {})
+}
+
+onUnmounted(() => {
+  Object.keys(pollingTimers).forEach(id => clearInterval(pollingTimers[id]))
+})
 </script>
 
 <template>
@@ -122,18 +168,32 @@ async function viewDetail(rec: TaskRecord) {
   </el-card>
 
   <el-card>
-    <template #header>任务历史</template>
+    <template #header>
+      <div style="display: flex; justify-content: space-between; align-items: center">
+        <span>任务历史</span>
+        <el-button v-if="taskStore.length" :icon="Delete" link type="danger" @click="onClearAll">清空</el-button>
+      </div>
+    </template>
     <el-table :data="taskStore" empty-text="暂无任务">
-      <el-table-column label="Task ID" width="140">
+      <el-table-column label="Task ID" width="120">
         <template #default="{ row }">{{ row.task_id.slice(0, 8) }}…</template>
       </el-table-column>
       <el-table-column prop="goal" label="Goal" show-overflow-tooltip />
-      <el-table-column label="提交时间" width="180">
+      <el-table-column label="状态" width="160">
+        <template #default="{ row }">
+          <el-tag :type="statusType[row.status] || 'info'" :effect="row.status === 'RUNNING' ? 'dark' : 'light'">
+            <el-icon v-if="row.status === 'RUNNING'" style="margin-right: 4px"><Refresh class="rotating" /></el-icon>
+            {{ row.status || '未知' }}
+          </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="提交时间" width="170">
         <template #default="{ row }">{{ new Date(row.submitted_at).toLocaleString() }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="100">
+      <el-table-column label="操作" width="120">
         <template #default="{ row }">
           <el-button link type="primary" @click="viewDetail(row)">查看</el-button>
+          <el-button link type="danger" :icon="Delete" @click="onDelete(row)" />
         </template>
       </el-table-column>
     </el-table>
@@ -162,3 +222,8 @@ async function viewDetail(rec: TaskRecord) {
     <el-skeleton v-else :rows="5" animated />
   </el-drawer>
 </template>
+
+<style scoped>
+.rotating { animation: rotate 1.5s linear infinite; }
+@keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+</style>

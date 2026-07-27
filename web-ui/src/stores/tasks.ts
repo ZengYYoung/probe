@@ -5,6 +5,7 @@ export interface TaskRecord {
   goal: string
   target_repo: string
   submitted_at: string
+  status?: string
 }
 
 const KEY = 'probe-tasks'
@@ -21,4 +22,18 @@ watch(taskStore, (v) => {
 
 export function addTask(rec: TaskRecord) {
   taskStore.unshift(rec)
+}
+
+export function updateTaskStatus(taskId: string, status: string) {
+  const t = taskStore.find(t => t.task_id === taskId)
+  if (t) t.status = status
+}
+
+export function removeTask(taskId: string) {
+  const i = taskStore.findIndex(t => t.task_id === taskId)
+  if (i >= 0) taskStore.splice(i, 1)
+}
+
+export function clearTasks() {
+  taskStore.splice(0, taskStore.length)
 }

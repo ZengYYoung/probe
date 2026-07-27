@@ -170,32 +170,61 @@ def create_app(loop_factory: LoopFactory | None = None) -> FastAPI:
 
     @app.post("/tasks", response_model=TaskCreateResponse)
     def create_task(req: TaskCreateRequest) -> TaskCreateResponse:
-        """Submit a goal against ``target_repo``; run the loop synchronously."""
+        """Submit a goal against ``target_repo``; start the loop in a background
+        thread and return ``task_id`` immediately so the frontend can poll."""
         task = Task(goal=req.goal, target_repo=req.target_repo)
-        loop = loop_factory(req.target_repo)
-        result = loop.run(task)
         task_id = uuid.uuid4().hex
-        tasks[task_id] = result
+        # Placeholder while the background thread runs.
+        tasks[task_id] = {
+            "status": "RUNNING",
+            "steps": [],
+            "final_failure_report": None,
+            "report_path": None,
+        }
+
+        def _run_in_background() -> None:
+            try:
+                loop = loop_factory(req.target_repo)
+                result = loop.run(task)
+                tasks[task_id] = result
+            except Exception:
+                tasks[task_id] = {
+                    "status": "ERROR",
+                    "steps": [],
+                    "final_failure_report": None,
+                    "report_path": None,
+                }
+
+        import threading
+        threading.Thread(target=_run_in_background, daemon=True).start()
         return TaskCreateResponse(task_id=task_id)
 
     @app.get("/tasks/{task_id}/report")
     def get_report(task_id: str) -> dict:
-        """Return the stored :class:`RunResult` for a task as JSON."""
+        """Return the stored :class:`RunResult` for a task as JSON.
+
+        While the background thread is running, returns a placeholder dict
+        with ``status: "RUNNING"``.
+        """
         result = tasks.get(task_id)
         if result is None:
             raise HTTPException(status_code=404, detail="task not found")
+        if isinstance(result, dict):
+            return result
         return result.model_dump(mode="json")
 
     @app.get("/tasks/{task_id}/stream")
     def get_stream(task_id: str) -> dict:
         """Return the step list for a task.
 
-        SSE is simplified to a JSON list per the task spec (``step.dict()``
-        style). Each step is serialized via pydantic for stable shape.
+        While running, returns an empty step list. After completion, returns
+        the full step list serialized via pydantic for stable shape.
         """
         result = tasks.get(task_id)
         if result is None:
             raise HTTPException(status_code=404, detail="task not found")
+        if isinstance(result, dict):
+            return {"steps": []}
         return {"steps": [s.model_dump(mode="json") for s in result.steps]}
 
     @app.post("/tasks/{task_id}/approve", response_model=ApproveResponse)
