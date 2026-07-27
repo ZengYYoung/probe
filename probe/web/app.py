@@ -14,12 +14,15 @@ server is a single-node dev/ops surface, not a clustered service.
 
 from __future__ import annotations
 
+import io
 import os
+import tempfile
 import uuid
+import zipfile
 from pathlib import Path
 from typing import Any, Callable
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, File, UploadFile
 from fastapi.responses import PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -44,6 +47,8 @@ _STATIC_DIR = _WEB_DIR / "static"
 # the Dockerfile to ``/app/demo-repo``). This lets the deployed WebUI
 # show package/class graphs out of the box.
 _DEMO_REPO_ENV = "PROBE_DEMO_REPO"
+
+_MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50MB
 
 
 def _resolve_repo(repo: str | None) -> Path:
@@ -143,6 +148,7 @@ def create_app(loop_factory: LoopFactory | None = None) -> FastAPI:
     # In-process task + approval stores. Single-node; not clustered.
     tasks: dict[str, RunResult] = {}
     approvals: dict[str, bool] = {}
+    repos: dict[str, dict] = {}  # repo_id -> {path, name, file_count}
 
     # Serve the static SPA (index.html + assets) under /static.
     if _STATIC_DIR.is_dir():
@@ -237,6 +243,61 @@ def create_app(loop_factory: LoopFactory | None = None) -> FastAPI:
             "guardrail": demo_guardrail(),
             "feedback_loop": demo_feedback_loop(),
             "no_progress": demo_no_progress(),
+        }
+
+    @app.post("/repos/upload")
+    async def upload_repo(file: UploadFile = File(...)) -> dict:
+        """上传 zip 压缩包，安全解压到临时目录，返回 repo_id + path。"""
+        content = await file.read()
+        if len(content) > _MAX_UPLOAD_BYTES:
+            raise HTTPException(413, "file too large (max 50MB)")
+        if not (file.filename or "").lower().endswith(".zip"):
+            raise HTTPException(400, "only .zip accepted")
+        if content[:4] not in (b"PK\x03\x04", b"PK\x05\x06", b"PK\x07\x08"):
+            raise HTTPException(400, "not a valid zip (bad magic bytes)")
+        repo_id = uuid.uuid4().hex
+        dest = Path(tempfile.mkdtemp(prefix=f"probe-repo-{repo_id}-"))
+        try:
+            with zipfile.ZipFile(io.BytesIO(content)) as zf:
+                for info in zf.infolist():
+                    target = (dest / info.filename).resolve()
+                    if not target.is_relative_to(dest):
+                        raise HTTPException(400, f"zip slip detected: {info.filename}")
+                zf.extractall(dest)
+        except zipfile.BadZipFile:
+            raise HTTPException(400, "corrupt zip")
+        file_count = sum(1 for p in dest.rglob("*") if p.is_file())
+        repos[repo_id] = {
+            "path": str(dest),
+            "name": file.filename,
+            "file_count": file_count,
+        }
+        return {
+            "repo_id": repo_id,
+            "path": str(dest),
+            "name": file.filename,
+            "file_count": file_count,
+        }
+
+    @app.get("/repos")
+    def list_repos() -> list:
+        """列出已上传的 repo（不含 path）。"""
+        return [
+            {"repo_id": rid, "name": r["name"], "file_count": r["file_count"]}
+            for rid, r in repos.items()
+        ]
+
+    @app.get("/repos/{repo_id}")
+    def get_repo(repo_id: str) -> dict:
+        """按 repo_id 取 repo 详情（含 path）。"""
+        r = repos.get(repo_id)
+        if r is None:
+            raise HTTPException(404, "repo not found")
+        return {
+            "repo_id": repo_id,
+            "path": r["path"],
+            "name": r["name"],
+            "file_count": r["file_count"],
         }
 
     return app
