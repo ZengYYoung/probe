@@ -1,20 +1,35 @@
 <script setup lang="ts">
 import { ref, onMounted, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Upload } from '@element-plus/icons-vue'
 import { graphviz } from 'd3-graphviz'
-import { getPackageDot, getClassDot } from '@/api'
+import { getPackageDot, getClassDot, uploadRepo } from '@/api'
+import { repoStore, addRepo } from '@/stores/repos'
 
 const repo = ref('')
 const kind = ref<'package' | 'class'>('package')
 const pkg = ref('')
 const dotSource = ref('')
 const loading = ref(false)
+const uploading = ref(false)
 const graphContainer = ref<HTMLDivElement>()
 
-async function render() {
-  if (!repo.value) {
-    ElMessage.warning('请填写 repo 路径（或留空使用内置 demo-repo）')
+async function onUpload(file: File) {
+  uploading.value = true
+  try {
+    const resp = await uploadRepo(file)
+    addRepo({ repo_id: resp.repo_id, path: resp.path, name: resp.name, file_count: resp.file_count })
+    repo.value = resp.path
+    ElMessage.success(`已上传: ${resp.name} (${resp.file_count} 文件)`)
+    render()
+  } catch (e) {
+    ElMessage.error('上传失败: ' + (e as Error).message)
+  } finally {
+    uploading.value = false
   }
+}
+
+async function render() {
   loading.value = true
   dotSource.value = ''
   try {
@@ -42,8 +57,28 @@ onMounted(() => {
   <el-card style="margin-bottom: 16px">
     <template #header>代码地图</template>
     <el-form inline>
-      <el-form-item label="Repo">
-        <el-input v-model="repo" placeholder="留空用内置 demo-repo" style="width: 320px" />
+      <el-form-item label="上传">
+        <el-upload
+          :auto-upload="true"
+          :show-file-list="false"
+          accept=".zip"
+          :http-request="(opts: any) => onUpload(opts.file)"
+        >
+          <el-button :icon="Upload" :loading="uploading">上传 zip</el-button>
+        </el-upload>
+      </el-form-item>
+      <el-form-item v-if="repoStore.length" label="已上传">
+        <el-select v-model="repo" placeholder="选择 repo" style="width: 240px" @change="render">
+          <el-option
+            v-for="r in repoStore"
+            :key="r.repo_id"
+            :label="`${r.name} (${r.file_count})`"
+            :value="r.path"
+          />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="或路径">
+        <el-input v-model="repo" placeholder="留空用内置 demo-repo" style="width: 240px" />
       </el-form-item>
       <el-form-item label="类型">
         <el-radio-group v-model="kind">
