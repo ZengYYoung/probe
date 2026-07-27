@@ -105,8 +105,8 @@ def _default_loop_factory(repo: str) -> AgentLoop:
     config = Config.load(None, {})
     repo_path = Path(repo)
     llm = OpenAICompatibleClient(
-        base_url="",
-        api_key="",
+        base_url=os.environ.get("LLM_BASE_URL", ""),
+        api_key=os.environ.get("LLM_API_KEY", ""),
         model=config.llm.model,
     )
     registry = ToolRegistry.for_repo(repo_path)
