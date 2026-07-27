@@ -221,4 +221,22 @@ def create_app(loop_factory: LoopFactory | None = None) -> FastAPI:
         graph = build_graph(_resolve_repo(repo))
         return render_class_dot(graph, package=package)
 
+    @app.get("/demo")
+    def run_demo() -> dict:
+        """运行 A.6 三个确定性机制演示（mock，无 key 无网络）。
+
+        包装 probe.demo 的三个函数，供 WebUI 机制演示页调用。
+        """
+        from probe.demo import (
+            demo_feedback_loop,
+            demo_guardrail,
+            demo_no_progress,
+        )
+
+        return {
+            "guardrail": demo_guardrail(),
+            "feedback_loop": demo_feedback_loop(),
+            "no_progress": demo_no_progress(),
+        }
+
     return app
