@@ -69,6 +69,26 @@ class CompileValidator(Validator):
 
         failures = self._parse(stdout + "\n" + stderr)
         status = "PASS" if exit_code == 0 and not failures else "FAIL"
+
+        # Fallback: compile failed but no parseable javac errors (e.g. no
+        # pom.xml, dependency resolution failure, Maven not installed).
+        # Capture raw output so the agent has feedback and the signature
+        # is non-trivial — prevents premature BLOCKED_NO_PROGRESS.
+        if status == "FAIL" and not failures:
+            raw_output = (stderr + "\n" + stdout).strip()
+            failures.append(
+                Failure(
+                    validator="compile",
+                    severity="error",
+                    file="",
+                    line=0,
+                    category=Category.BUILD_CONFIG_ERROR,
+                    message=raw_output[:500] or "compile failed (no parseable errors)",
+                    raw=raw_output,
+                    hint="check pom.xml, project structure, or Maven installation",
+                )
+            )
+
         summary = dict(Counter(f.category.value for f in failures))
         return FailureReport(
             per_validator_status={"compile": status},
