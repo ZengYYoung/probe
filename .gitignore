@@ -33,3 +33,9 @@ target/
 .idea/
 .vscode/
 .DS_Store
+
+# 前端构建产物与依赖
+probe/web/static/*
+!probe/web/static/.gitkeep
+web-ui/node_modules/
+web-ui/dist/
