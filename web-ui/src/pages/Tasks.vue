@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { submitTask, getReport, getStream, type RunResult, type Step } from '@/api'
+import { Upload } from '@element-plus/icons-vue'
+import { submitTask, getReport, getStream, uploadRepo, type RunResult, type Step } from '@/api'
 import { taskStore, addTask, type TaskRecord } from '@/stores/tasks'
+import { repoStore, addRepo } from '@/stores/repos'
 
 const goal = ref('')
 const targetRepo = ref('')
 const submitting = ref(false)
+const uploading = ref(false)
 
 const drawerVisible = ref(false)
 const current = ref<RunResult | null>(null)
@@ -21,9 +24,27 @@ const statusType: Record<string, string> = {
   ERROR: 'danger',
 }
 
+async function onUpload(file: File) {
+  uploading.value = true
+  try {
+    const resp = await uploadRepo(file)
+    addRepo({ repo_id: resp.repo_id, path: resp.path, name: resp.name, file_count: resp.file_count })
+    targetRepo.value = resp.path
+    ElMessage.success(`已上传: ${resp.name} (${resp.file_count} 文件)`)
+  } catch (e) {
+    ElMessage.error('上传失败: ' + (e as Error).message)
+  } finally {
+    uploading.value = false
+  }
+}
+
+function onRepoSelect(path: string) {
+  targetRepo.value = path
+}
+
 async function onSubmit() {
   if (!goal.value || !targetRepo.value) {
-    ElMessage.warning('请填写 goal 与 target_repo')
+    ElMessage.warning('请填写 goal 并上传/选择 repo')
     return
   }
   submitting.value = true
@@ -69,7 +90,31 @@ async function viewDetail(rec: TaskRecord) {
       <el-form-item label="目标 (goal)">
         <el-input v-model="goal" type="textarea" :rows="2" placeholder="让测试变绿" />
       </el-form-item>
-      <el-form-item label="目标仓库路径 (target_repo)">
+      <el-form-item label="Java 项目 (上传 zip 或选择已上传)">
+        <el-upload
+          :auto-upload="true"
+          :show-file-list="false"
+          accept=".zip"
+          :http-request="(opts: any) => onUpload(opts.file)"
+        >
+          <el-button :icon="Upload" :loading="uploading">上传 zip</el-button>
+        </el-upload>
+        <el-select
+          v-if="repoStore.length"
+          v-model="targetRepo"
+          placeholder="选择已上传的 repo"
+          style="width: 100%; margin-top: 8px"
+          @change="onRepoSelect"
+        >
+          <el-option
+            v-for="r in repoStore"
+            :key="r.repo_id"
+            :label="`${r.name} (${r.file_count} 文件)`"
+            :value="r.path"
+          />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="或手动输入路径 (本地开发)">
         <el-input v-model="targetRepo" placeholder="/path/to/java-repo" />
       </el-form-item>
       <el-button type="primary" :loading="submitting" @click="onSubmit">提交</el-button>

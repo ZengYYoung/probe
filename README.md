@@ -80,6 +80,8 @@ uvicorn probe.web.app:create_app --factory
 
 新端点 `GET /demo` 返回 `{guardrail, feedback_loop, no_progress}` JSON，供演示页调用。
 
+上传 Java 项目：在任务页或代码地图页点"上传 zip"按钮，选择一个 `.zip` 压缩的 Java 仓（含 `pom.xml` + 源码）。后端安全解压到临时目录（防 zip slip），返回的 path 自动填入 `target_repo` / `repo` 参数。上传的 repo 在进程内存储，重启后失效（需重新上传）。大小限制 50MB。
+
 机制演示（A.6，纯 mock，无 key 无网络，CLI 版）：
 
 ```bash

@@ -71,3 +71,26 @@ export async function getDemo(): Promise<DemoResp> {
   if (!r.ok) throw new Error(`getDemo ${r.status}`)
   return r.json()
 }
+
+export interface RepoUploadResp { repo_id: string; path: string; name: string; file_count: number }
+export interface RepoListItem { repo_id: string; name: string; file_count: number }
+
+export async function uploadRepo(file: File): Promise<RepoUploadResp> {
+  const fd = new FormData()
+  fd.append('file', file)
+  const r = await fetch(`${base}/repos/upload`, { method: 'POST', body: fd })
+  if (!r.ok) throw new Error(`uploadRepo ${r.status}`)
+  return r.json()
+}
+
+export async function listRepos(): Promise<RepoListItem[]> {
+  const r = await fetch(`${base}/repos`)
+  if (!r.ok) throw new Error(`listRepos ${r.status}`)
+  return r.json()
+}
+
+export async function getRepo(repoId: string): Promise<RepoUploadResp> {
+  const r = await fetch(`${base}/repos/${repoId}`)
+  if (!r.ok) throw new Error(`getRepo ${r.status}`)
+  return r.json()
+}
