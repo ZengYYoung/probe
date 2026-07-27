@@ -1,4 +1,4 @@
-# Stage 1: 构建前端
+# Stage 1: build frontend
 FROM node:20-alpine AS frontend
 WORKDIR /ui
 COPY web-ui/package*.json ./
@@ -6,7 +6,7 @@ RUN npm install
 COPY web-ui/ ./
 RUN mkdir -p /probe/web/static && npm run build
 
-# Stage 2: Python 运行时
+# Stage 2: Python runtime
 FROM python:3.12-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
     default-jdk maven graphviz && rm -rf /var/lib/apt/lists/*
