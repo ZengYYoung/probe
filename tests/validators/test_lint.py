@@ -11,7 +11,7 @@ def test_parses_violation(tmp_path):
     d = tmp_path / "target"
     d.mkdir()
     (d / "checkstyle-result.xml").write_text(CS)
-    v = LintValidator(runner=lambda cmd: (0, "", ""))
+    v = LintValidator(runner=lambda cmd, cwd: (0, "", ""))
     r = v.run(repo=str(tmp_path))
     assert r.failures[0].category == Category.LINT_VIOLATION
     assert r.failures[0].line == 3 and "JavadocMethod" in r.failures[0].raw
@@ -25,13 +25,13 @@ def test_clean_lint(tmp_path):
     (d / "checkstyle-result.xml").write_text(
         '<?xml version="1.0"?><checkstyle version="8.0"></checkstyle>'
     )
-    v = LintValidator(runner=lambda cmd: (0, "", ""))
+    v = LintValidator(runner=lambda cmd, cwd: (0, "", ""))
     r = v.run(repo=str(tmp_path))
     assert r.per_validator_status.get("lint") == "PASS"
     assert r.failures == []
 
 
 def test_no_report_file(tmp_path):
-    v = LintValidator(runner=lambda cmd: (0, "", ""))
+    v = LintValidator(runner=lambda cmd, cwd: (0, "", ""))
     r = v.run(repo=str(tmp_path))
     assert r.per_validator_status.get("lint") == "UNAVAILABLE"

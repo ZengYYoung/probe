@@ -13,7 +13,7 @@ def test_parses_failure(tmp_path):
     d = tmp_path / "target" / "surefire-reports"
     d.mkdir(parents=True)
     (d / "TEST-com.x.FooTest.xml").write_text(SUREFIRE)
-    v = TestValidator(runner=lambda cmd: (0, "", ""))
+    v = TestValidator(runner=lambda cmd, cwd: (0, "", ""))
     r = v.run(repo=str(tmp_path))
     fails = [f for f in r.failures if f.category == Category.TEST_FAILURE]
     assert len(fails) == 1
@@ -30,7 +30,7 @@ def test_error_category(tmp_path):
     d = tmp_path / "target" / "surefire-reports"
     d.mkdir(parents=True)
     (d / "TEST-com.x.BarTest.xml").write_text(xml)
-    v = TestValidator(runner=lambda cmd: (0, "", ""))
+    v = TestValidator(runner=lambda cmd, cwd: (0, "", ""))
     r = v.run(repo=str(tmp_path))
     assert any(f.category == Category.TEST_ERROR for f in r.failures)
 
@@ -41,7 +41,7 @@ def test_all_pass(tmp_path):
     (d / "TEST-com.x.OkTest.xml").write_text(
         '<testsuite name="OkTest" tests="1"><testcase name="t" classname="OkTest"/></testsuite>'
     )
-    v = TestValidator(runner=lambda cmd: (0, "", ""))
+    v = TestValidator(runner=lambda cmd, cwd: (0, "", ""))
     r = v.run(repo=str(tmp_path))
     assert r.per_validator_status.get("test") == "PASS"
     assert r.failures == []
@@ -53,6 +53,6 @@ def test_skipped_is_missing(tmp_path):
     (d / "TEST-com.x.SkTest.xml").write_text(
         '<testsuite name="SkTest" tests="1" skipped="1"><testcase name="t" classname="SkTest"><skipped/></testcase></testsuite>'
     )
-    v = TestValidator(runner=lambda cmd: (0, "", ""))
+    v = TestValidator(runner=lambda cmd, cwd: (0, "", ""))
     r = v.run(repo=str(tmp_path))
     assert any(f.category == Category.TEST_MISSING for f in r.failures)

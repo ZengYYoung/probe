@@ -6,7 +6,7 @@ def test_parses_javac_errors():
     out = ("[ERROR] /src/Main.java:[5,1] error: ';' expected\n"
            "[ERROR] /src/Other.java:[9,1] error: cannot find symbol\n"
            "[ERROR] /src/Big.java:[12,1] error: cannot find symbol\n")
-    v = CompileValidator(runner=lambda cmd: (1, out, ""))
+    v = CompileValidator(runner=lambda cmd, cwd: (1, out, ""))
     r = v.run(repo="/repo")
     cats = {f.category for f in r.failures}
     assert Category.COMPILE_SYNTAX in cats
@@ -18,14 +18,14 @@ def test_parses_javac_errors():
 
 
 def test_clean_compile_passes():
-    v = CompileValidator(runner=lambda cmd: (0, "", ""))
+    v = CompileValidator(runner=lambda cmd, cwd: (0, "", ""))
     r = v.run(repo="/repo")
     assert r.per_validator_status.get("compile") == "PASS"
     assert r.failures == []
 
 
 def test_runner_unavailable():
-    def boom(cmd):
+    def boom(cmd, cwd):
         raise RuntimeError("mvn not found")
 
     v = CompileValidator(runner=boom)

@@ -34,7 +34,7 @@ class LintValidator(Validator):
     name = "lint"
 
     def __init__(self, runner=None) -> None:
-        """``runner`` is ``callable(cmd:str)->(exit_code, stdout, stderr)``.
+        """``runner`` is ``callable(cmd, cwd)->(exit_code, stdout, stderr)``.
 
         If omitted, a default runner shells out via :mod:`subprocess` in the
         repo working directory. Tests inject a stub so no mvn/network is needed.
@@ -42,10 +42,11 @@ class LintValidator(Validator):
         self._runner = runner or self._default_runner
 
     @staticmethod
-    def _default_runner(cmd: str) -> tuple[int, str, str]:
+    def _default_runner(cmd: str, cwd: str | None = None) -> tuple[int, str, str]:
         proc = subprocess.run(
             cmd,
             shell=True,
+            cwd=cwd,
             capture_output=True,
             text=True,
             timeout=600,
@@ -54,7 +55,7 @@ class LintValidator(Validator):
 
     def run(self, repo: str, changed_files: list[str] | None = None) -> FailureReport:
         try:
-            self._runner(LINT_CMD)
+            self._runner(LINT_CMD, repo)
         except Exception:
             return FailureReport(
                 per_validator_status={"lint": "UNAVAILABLE"},
