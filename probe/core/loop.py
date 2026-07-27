@@ -130,9 +130,68 @@ class AgentLoop:
         self.guardrail_fn: GuardrailFn = guardrail_fn if guardrail_fn is not None else guardrail
 
     def _build_tools(self) -> list[ToolSpec]:
-        """Tool specs advertised to the LLM. Empty here — MockLLM ignores and
-        a real client wires its own schema; the loop does not depend on this."""
-        return []
+        """Tool specs advertised to the LLM so it can produce tool_calls."""
+        return [
+            ToolSpec(
+                name="RunShell",
+                description="Run a shell command in the repo (e.g. mvn test, javac).",
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "command": {"type": "string", "description": "The shell command to run."},
+                        "cwd": {"type": "string", "description": "Working directory (optional)."},
+                    },
+                    "required": ["command"],
+                },
+            ),
+            ToolSpec(
+                name="ReadFile",
+                description="Read the contents of a file in the repo.",
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "path": {"type": "string", "description": "Relative path to the file."},
+                    },
+                    "required": ["path"],
+                },
+            ),
+            ToolSpec(
+                name="WriteFile",
+                description="Write content to a file in the repo (creates or overwrites).",
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "path": {"type": "string", "description": "Relative path to the file."},
+                        "content": {"type": "string", "description": "The full content to write."},
+                    },
+                    "required": ["path", "content"],
+                },
+            ),
+            ToolSpec(
+                name="PatchFile",
+                description="Patch a file by replacing old text with new text.",
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "path": {"type": "string", "description": "Relative path to the file."},
+                        "old": {"type": "string", "description": "The text to find."},
+                        "new": {"type": "string", "description": "The replacement text."},
+                    },
+                    "required": ["path", "old", "new"],
+                },
+            ),
+            ToolSpec(
+                name="ListFiles",
+                description="List files in a directory in the repo.",
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "path": {"type": "string", "description": "Relative path to the directory."},
+                    },
+                    "required": ["path"],
+                },
+            ),
+        ]
 
     def run(self, task: Task) -> RunResult:
         """Drive the loop to a terminal :class:`Status`.
@@ -166,8 +225,20 @@ class AgentLoop:
         steps: list[Step] = []
         last_report: FailureReport | None = None
 
-        # Seed the conversation with the goal.
-        messages: list[Message] = [Message(role="user", content=task.goal)]
+        # Seed the conversation with a system prompt + the goal.
+        messages: list[Message] = [
+            Message(
+                role="system",
+                content=(
+                    "You are a coding agent working on a Java repo. "
+                    "Use the provided tools to achieve the user's goal. "
+                    "Always call a tool to make progress — do not respond with only text. "
+                    "After running tests, if they fail, read the error and patch the source. "
+                    "When the goal is achieved, respond with no tool call."
+                ),
+            ),
+            Message(role="user", content=task.goal),
+        ]
         tools = self._build_tools()
 
         iteration = 0
