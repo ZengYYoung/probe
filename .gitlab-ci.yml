@@ -1,9 +1,9 @@
-image: hub-mirror.c.163.com/library/python:3.12-slim-bookworm
+image: mirrors.nju.edu.cn/docker/library/python:3.12-slim-bookworm
 stages: [test]
 unit-test:
   stage: test
   before_script:
-    - sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources
+    - sed -i 's/deb.debian.org/mirrors.nju.edu.cn/g' /etc/apt/sources.list.d/debian.sources
     - apt-get update -qq && apt-get install -y -qq --no-install-recommends default-jdk-headless maven graphviz && rm -rf /var/lib/apt/lists/*
   script:
     - pip install -e ".[dev]"
