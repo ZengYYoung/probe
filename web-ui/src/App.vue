@@ -9,6 +9,8 @@ import {
   Moon,
   Sunny,
 } from '@element-plus/icons-vue'
+import { syncRepos } from '@/stores/repos'
+import { syncTasks } from '@/stores/tasks'
 
 const route = useRoute()
 const isDark = ref(false)
@@ -27,6 +29,10 @@ onMounted(() => {
   const saved = localStorage.getItem('probe-dark') === 'true'
   isDark.value = saved
   applyDark(saved)
+  // Sync repos + tasks with backend on every page load — removes stale
+  // localStorage entries that no longer exist on the server.
+  syncRepos()
+  syncTasks()
 })
 
 const menus = [
