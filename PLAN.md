@@ -6,7 +6,7 @@
 
 **Architecture:** 单 agent 主循环（自实现）驱动；LLMClient 抽象层可注入 MockLLM；确定性校验流水线（Compile/Test/Lint）→ FailureReport → FailureClassifier → SelfCorrector 结构化回灌与停机；Guardrail + HITLStateMachine 治理；CodeMap 自实现图构建/检索/渲染。所有核心机制用 MockLLM 单测，不依赖网络与真实 LLM。
 
-**Tech Stack:** Python 3.12、`pytest`、`pydantic`、`httpx`、`keyring`、`javalang`、`fastapi`+`uvicorn`、`cytoscape`(前端)、graphviz `dot`、JDK 21 + Maven、Docker、GitLab CI。
+**Tech Stack:** Python 3.12、`pytest`、`pydantic`、`httpx`、`keyring`、`javalang`、`fastapi`+`uvicorn`、`vue`+`element-plus`+`marked`(前端)、`d3-graphviz`、graphviz `dot`、JDK 21 + Maven、Docker、GitHub Actions + GitLab CI。LLM：DeepSeek（`deepseek-v4-flash`）。
 
 ## Global Constraints
 
@@ -1105,3 +1105,20 @@ Plan complete and saved to `PLAN.md`. Two execution options:
 **但**：作业 §4.5 要求在正式实现前先用"陌生 agent 冷启动试运行"——这是规约质量的客观证据，优先级高于直接实现。建议顺序：先做冷启动验证（拿 SPEC+PLAN 让第二个 agent 跑 1–2 个 task）→ 据 feedback 修订 SPEC/PLAN → 再进入 subagent-driven 实现。
 
 你想：(A) 先做冷启动验证，还是 (B) 直接 subagent-driven 实现？
+
+---
+
+## 实现完成记录
+
+**T1–T29 全部完成**（2026-07-09），113 测试全绿。详见 `AGENT_LOG.md`。
+
+**后续增强**（2026-07-10 ~ 2026-07-28）：
+
+| 变更 | commit | 测试 |
+|---|---|---|
+| 内置 demo-repo + WebUI 默认走 PROBE_DEMO_REPO | — | 117 passed |
+| 项目结构检测（`find_maven_root()`，三个 validator 自动发现 Maven 根目录） | e9c32ab | 148 passed |
+| WebUI 清理失效数据（`/repos` 含 demo + 过滤 stale，`App.vue` 全局 sync） | 38975b7 | 148 passed |
+| agent 调试 → 代码报告（`POST /analyze` 调 DeepSeek LLM 出报告） | 73d68c2 + 2171be1 | 148 passed |
+| 默认 LLM 切换为 DeepSeek（`deepseek-v4-flash`） | 18a7f88 | 148 passed |
+| 用户自定义提示词 + markdown 美化渲染 | 160a3cf | 148 passed |

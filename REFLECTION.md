@@ -1,8 +1,8 @@
 # REFLECTION.md
 
 > 本反思报告由学生本人撰写，可用 AI 辅助润色（已标注）。内容为第一手工程判断，非 AI 代写。
-> 项目：Probe —— Java 可行性验证 coding agent harness（自实现 Python 内核）。
-> 开发智能体：Claude Code（Superpowers v6.1.1，宿主接 njusehub glm-5.2）；冷启动第二智能体：OpenAI Codex CLI。
+> 项目：Probe —— Java 代码分析工具（harness 内核 + DeepSeek LLM 分析报告 + 代码地图）。
+> 开发智能体：Claude Code（Superpowers v6.1.1）；冷启动第二智能体：OpenAI Codex CLI。
 
 ## 1. 哪些 Superpowers 技能发挥了最大作用、哪些"形式大于实质"
 
@@ -86,7 +86,8 @@ TDD 在 AI 协作下最大的价值：它把"subagent 有没有真懂 task"变�
 - 仅 Maven 深度支持；Gradle 尽力而为。`javalang` 对 records/密封类等新语法可能解析不全（降级跳过）。
 - 影响面闭包是静态保守的，可能多报。
 - `demo_feedback_loop` 的反馈因果在 offline MockLLM 下无法严格证明（见 §8）。
-- 部署 URL / CI 最后一次 pass / 远程仓库推送：因 GitHub 账号暂不可用，这三项**待用户具备远程条件后补齐**（本地 `make test` 113 passed 已绿；docker build 因 daemon 未运行待手动验证）。
+- LLM 分析报告依赖 DeepSeek API 可用性；API key 未配置时 `/analyze` 返回 502。
+- 源码采集有大小限制（单文件 50KB，总量 300KB），超大项目会截断。
 
 ## 结论
 

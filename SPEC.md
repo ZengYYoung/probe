@@ -134,9 +134,10 @@
 - 边界：纯渲染，无副作用。
 
 ### 3.14 WebUI（必做）
-- FastAPI 后端 + 静态前端。页面：① 任务提交；② 实时运行轨迹（步骤/工具调用/校验结果流式 SSE）；③ 可行性报告；④ 包图/类图交互（cytoscape）；⑤ HITL 审批弹窗。
-- 边界：WebUI 不嵌进 AgentLoop 逻辑，只通过共享 `RunResult`/事件流消费；agent 内核不依赖 WebUI。
-- 错误处理：SSE 断连→前端重连拉取快照。
+- FastAPI 后端 + 静态前端。页面：① 代码报告（选 repo → DeepSeek LLM 分析 → markdown 报告，支持自定义提示词）；② 代码地图（包图/类图交互渲染，d3-graphviz）；③ 机制演示（A.6 三大确定性机制）。
+- `POST /analyze`：采集项目源码发给 DeepSeek，返回 LLM 分析报告（项目概述/代码结构/问题发现/改进建议）。
+- 边界：WebUI 不嵌进 AgentLoop 逻辑，只通过 API 消费；agent 内核不依赖 WebUI。
+- 错误处理：LLM 调用失败→返回 502 错误信息。
 
 ## 4. 非功能性需求
 
@@ -168,9 +169,10 @@ WebUI (FastAPI) ──┐
 **数据流**：任务→AgentLoop→LLM 提议动作→Guardrail→[HITL]→Tool 执行→ValidatorPipeline→FailureReport→Classifier→SelfCorrector→(回灌|停机)→ReportRenderer→WebUI/CLI。
 
 **外部依赖**：
-- LLM 供应商：OpenAI-compatible 端点（默认 njusehub glm-5.2）。
+- LLM 供应商：OpenAI-compatible 端点（默认 DeepSeek `https://api.deepseek.com`，模型 `deepseek-v4-flash`）。
 - 外部工具：`mvn` 或 `gradle`、JDK、`checkstyle`、graphviz `dot`。
-- Python 依赖：`javalang`、`keyring`、`fastapi`、`uvicorn`、`pytest`、`httpx`、`pydantic`、`cytoscape`（前端）。
+- Python 依赖：`javalang`、`keyring`、`fastapi`、`uvicorn`、`pytest`、`httpx`、`pydantic`。
+- 前端依赖：`vue`、`element-plus`、`d3-graphviz`、`marked`（markdown 渲染）。
 
 ## 6. 数据模型
 
@@ -234,7 +236,7 @@ Step{iteration, action, tool_result, failure_report?, decision}
 
 - **harness 实现语言：Python**。迭代快、`pytest` 做 TDD 体验最佳、`subprocess` 调 `mvn`/`javac` 自然、`javalang`/`keyring`/`fastapi` 生态成熟；mock LLM 单测最顺手。与目标语言 Java 解耦，校验器通过 subprocess 调 Java 工具链。
 - **目标语言：Java**。JUnit surefire XML 结构化、javac 错误格式稳定、checkstyle XML 规范，便于确定性解析与分类；课程项目多 Java，贴实际审查需求。只做一种以保深度。
-- **LLM 供应商：OpenAI-compatible 抽象层，默认 njusehub glm-5.2**。复用已有端点与 key，兼容性最广（可换 OpenAI/DeepSeek 等）；抽象层使单测可用 MockLLM 完全离线运行。
+- **LLM 供应商：OpenAI-compatible 抽象层，默认 DeepSeek（deepseek-v4-flash）**。通过 `LLM_BASE_URL` + `LLM_API_KEY` 环境变量配置；抽象层使单测可用 MockLLM 完全离线运行。WebUI 的 `/analyze` 端点直接调用 LLM 读取源码生成分析报告。
 - **分发：Docker**。单条 build/run、CI 可构建、环境自洽（JDK/Maven/graphviz 内置）。
 - **部署：Fly.io 或 Render**（优先免费额度），提供公网 WebUI URL。
 - **重点深入维度：反馈闭环**。最契合 §A.4"机制是代码、可 mock 单测"，闭环真正闭合（失败→分类→回灌→改下一步→无进展检测）。

@@ -48,4 +48,10 @@
 - **2026-07-10** GitHub 账号恢复：推送 main 到 https://github.com/ZengYYoung/probe.git；加 `.github/workflows/ci.yml`（unit-test + build-image），CI 最后一次 pass。
 - **2026-07-10** 增强：内置 `demo-repo/`（含故意失败测试的 Maven Java 工程）+ WebUI `/map` 默认走 `PROBE_DEMO_REPO` env 兜底 + Dockerfile 复制 + 设 env；117 passed。
 - **2026-07-10** Render 部署成功，公网 WebUI URL：https://probe-ho3d.onrender.com —— 已验证 `/`(200)、`/map/package.dot`(com.demo 包图)、`/map/class.dot?package=com.demo`(Foo/Bar 类图) 实跑正常。清单第 9 项满足。
-- **待办**：`docker build .` 本机手动验证（daemon 未运行）；REFLECTION.md 学生本人通读定稿。
+- **2026-07-28** 修复项目结构检测：新增 `probe/validators/project.py`（`find_maven_root()`），三个 validator 自动发现 Maven 根目录（根目录/子目录/Gradle/无构建文件）；`classify_report()` 保留 validator 的非空 hint；15 个新测试，148 passed。commit `e9c32ab`。
+- **2026-07-28** WebUI 清理失效数据：`/repos` 始终包含内置 demo repo + 过滤 stale repo；`App.vue` 全局 `syncRepos()`；前端启动时清 `probe-tasks` localStorage。commit `38975b7`。
+- **2026-07-28** agent 调试 → 代码报告：新增 `POST /analyze` 端点（先跑 ValidatorPipeline，后改为直接调 DeepSeek LLM）；`Tasks.vue` → `Report.vue`（选 repo → 分析 → 展示报告）；路由 `/tasks` → `/report`；移除 HITL 审批页。commit `73d68c2` + `2171be1`。
+- **2026-07-28** 切换默认 LLM 为 DeepSeek：`config.py` 默认模型 `deepseek-v4-flash`，`app.py` 默认 `LLM_BASE_URL=https://api.deepseek.com`。commit `18a7f88`。
+- **2026-07-28** 用户自定义提示词 + markdown 美化：`AnalyzeRequest.prompt` 可选字段；前端安装 `marked`，报告用 markdown HTML 渲染。commit `160a3cf`。
+- **2026-07-28** 更新 README + SPEC 反映当前架构。补 `.github/workflows/ci.yml`。
+- **待办**：`docker build .` 本机手动验证（daemon 未运行）。

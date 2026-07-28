@@ -151,11 +151,14 @@
 - [x] writing-plans → `PLAN.md`（29 个 TDD task）。
 - [x] 冷启动验证（§4.5）：用 **Codex**（不同类型 agent）零背景跑 T12+T17，暴露 4 个缺陷（D1 多余 import / D2 分类规则优先级与 validator 消歧未定 / D3 pydantic 未钉死 / D4 classify_report mutate），已修订 SPEC/PLAN 并写 `SPEC_PROCESS.md`。证据分支 `coldstart/codex` 保留不合入。
 - [x] 实现：`subagent-driven-development` —— 29 个 task 全部完成（每 task 一个 implementer subagent + 内联快审/独立 reviewer；T17/T18/T23/T27 用独立 reviewer）。**113 测试全绿**。整支 code review APPROVED：A.4 自实现✅、机制代码化✅、凭据安全✅、集成✅、测试非空断言✅、路径围栏✅、pydantic 一致✅。`REFLECTION.md` 已写。
-- [ ] **待远程条件补齐**（用户 GitHub 账号已恢复，进行中）：
-  - [x] 推送到 GitHub remote：`https://github.com/ZengYYoung/probe.git`，main 已推送。
-  - [x] CI 最后一次 pass：GitHub Actions（`.github/workflows/ci.yml`，含 `unit-test` + `build-image` job）已绿；`.gitlab-ci.yml` 保留满足清单第 6 项。
-  - [ ] `docker build .` 手动验证（本机 daemon 未运行，待手动）。
-  - [x] 部署到 Render 取公网 WebUI URL：https://probe-ho3d.onrender.com —— 已验证 `/`（HTTP 200）、`/map/package.dot`（返回 com.demo 包图）、`/map/class.dot?package=com.demo`（返回 Foo/Bar 类图）实跑正常。镜像内置 demo-repo，次要深度（代码地图）在线上验证。
-- [x] 已知限制（见 REFLECTION §已知限制）：`RunShell shell=True` 仅 Guardrail 单围栏；仅 Maven 深度支持；demo 反馈因果在 offline mock 下无法严格证明。
+- [x] 推送到 GitHub remote：`https://github.com/ZengYYoung/probe.git`，main 已推送。
+- [x] CI 最后一次 pass：GitHub Actions（`.github/workflows/ci.yml`，含 `unit-test` + `build-image` job）；`.gitlab-ci.yml` 保留满足清单第 6 项。
+- [x] 部署到 Render 取公网 WebUI URL：https://probe-rgw2.onrender.com —— 已验证 `/`(200)、`/repos`(返回 demo repo)、`/demo`(机制演示)、`/map/package.dot`(包图) 实跑正常。
+- [x] 项目结构检测：新增 `find_maven_root()` 自动发现 Maven 根目录（根目录/子目录/Gradle），三个 validator 已集成。
+- [x] WebUI 简化：agent 调试 → 代码报告（`POST /analyze` 调 DeepSeek LLM 直接出报告）；`Tasks.vue` → `Report.vue`；移除 HITL 审批页。
+- [x] 默认 LLM 切换为 DeepSeek（`deepseek-v4-flash`，`LLM_BASE_URL=https://api.deepseek.com`）。
+- [x] 用户自定义提示词 + markdown 美化渲染。
+- [x] 148 测试全绿（2 pre-existing Windows failures）。
+- [ ] `docker build .` 手动验证（本机 daemon 未运行，待手动）。
 
 > 工作纪律：凡涉及"做什么 / 做对了吗"的判断，由我（学生）主导；Superpowers 守住"怎么做"的流程脚手架。不要把题目原封不动交给智能体再把结果原封不动交上来。
