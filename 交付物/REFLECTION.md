@@ -1,8 +1,8 @@
 # REFLECTION.md
 
-> 本反思报告由学生本人撰写，可用 AI 辅助润色（已标注）。内容为第一手工程判断，非 AI 代写。
+> 本反思报告由学生本人撰写，用 AI 辅助润色（已标注）。内容为第一手工程判断，非 AI 代写。
 > 项目：Probe —— Java 代码分析工具（harness 内核 + DeepSeek LLM 分析报告 + 代码地图）。
-> 开发智能体：Claude Code（Superpowers v6.1.1）；冷启动第二智能体：OpenAI Codex CLI。
+> 开发智能体：Open Code（Superpowers v6.1.1）；冷启动第二智能体：OpenAI Codex CLI。
 
 ## 1. 哪些 Superpowers 技能发挥了最大作用、哪些"形式大于实质"
 
