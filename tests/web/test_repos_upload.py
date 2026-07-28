@@ -49,6 +49,21 @@ def test_upload_valid_zip():
     assert body["file_count"] >= 2
 
 
+def test_upload_flattens_single_top_dir():
+    """zip 内多一层顶层目录时,内容应提升到 repo 根(pom.xml 在根层)。"""
+    c = _client()
+    zip_bytes = _make_zip({
+        "myproject/pom.xml": "<project></project>",
+        "myproject/src/Main.java": "class Main {}",
+    })
+    r = c.post("/repos/upload", files={"file": ("test.zip", zip_bytes, "application/zip")})
+    assert r.status_code == 200
+    import os
+    repo_path = r.json()["path"]
+    assert os.path.exists(os.path.join(repo_path, "pom.xml"))
+    assert not os.path.exists(os.path.join(repo_path, "myproject"))
+
+
 def test_upload_non_zip_rejected():
     c = _client()
     r = c.post("/repos/upload", files={"file": ("test.txt", b"hello", "text/plain")})

@@ -296,6 +296,15 @@ def create_app(loop_factory: LoopFactory | None = None) -> FastAPI:
                 zf.extractall(dest)
         except zipfile.BadZipFile:
             raise HTTPException(400, "corrupt zip")
+        # Flatten: if the zip has a single top-level directory (common for
+        # IDE-exported zips), lift its contents up to dest so pom.xml /
+        # build.gradle lands at the repo root where validators expect it.
+        top = [p for p in dest.iterdir() if not p.name.startswith(".")]
+        if len(top) == 1 and top[0].is_dir():
+            inner = top[0]
+            for item in inner.iterdir():
+                item.rename(dest / item.name)
+            inner.rmdir()
         file_count = sum(1 for p in dest.rglob("*") if p.is_file())
         repos[repo_id] = {
             "path": str(dest),
