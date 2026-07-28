@@ -106,7 +106,28 @@ def test_list_repos():
     assert len(body) >= 1
     assert "repo_id" in body[0]
     assert "name" in body[0]
-    assert "path" not in body[0]  # path 不泄露到列表接口
+    assert "path" in body[0]
+    assert "is_demo" in body[0]
+
+
+def test_list_repos_filters_stale():
+    """Repos whose temp dirs no longer exist should be filtered out."""
+    c = _client()
+    zip_bytes = _make_zip({"pom.xml": "<project/>"})
+    up = c.post("/repos/upload", files={"file": ("a.zip", zip_bytes, "application/zip")}).json()
+    # Simulate the temp dir being cleaned up (e.g. server restart).
+    import shutil
+    shutil.rmtree(up["path"], ignore_errors=True)
+    r = c.get("/repos")
+    body = r.json()
+    assert not any(item["repo_id"] == up["repo_id"] for item in body)
+
+
+def test_delete_demo_rejected():
+    """Built-in demo repo cannot be deleted."""
+    c = _client()
+    r = c.delete("/repos/demo")
+    assert r.status_code == 400
 
 
 def test_get_repo():

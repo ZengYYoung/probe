@@ -4,7 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Upload, Delete } from '@element-plus/icons-vue'
 import { graphviz } from 'd3-graphviz'
 import { getPackageDot, getClassDot, uploadRepo, deleteRepo } from '@/api'
-import { repoStore, addRepo, removeRepo } from '@/stores/repos'
+import { repoStore, addRepo, removeRepo, syncRepos, getDemoRepoPath } from '@/stores/repos'
 
 const repo = ref('')
 const kind = ref<'package' | 'class'>('package')
@@ -18,7 +18,7 @@ async function onUpload(file: File) {
   uploading.value = true
   try {
     const resp = await uploadRepo(file)
-    addRepo({ repo_id: resp.repo_id, path: resp.path, name: resp.name, file_count: resp.file_count })
+    addRepo({ repo_id: resp.repo_id, path: resp.path, name: resp.name, file_count: resp.file_count, is_demo: false })
     repo.value = resp.path
     ElMessage.success(`已上传: ${resp.name} (${resp.file_count} 文件)`)
     render()
@@ -35,6 +35,10 @@ async function onDeleteRepo() {
     ElMessage.warning('请先选择一个已上传的 repo')
     return
   }
+  if (cur.is_demo) {
+    ElMessage.warning('内置 demo 不可删除')
+    return
+  }
   try {
     await ElMessageBox.confirm('删除该 repo？解压目录会被清理。', '确认', { type: 'warning' })
   } catch {
@@ -43,8 +47,9 @@ async function onDeleteRepo() {
   try {
     await deleteRepo(cur.repo_id)
     removeRepo(cur.repo_id)
-    repo.value = ''
+    repo.value = getDemoRepoPath() || ''
     ElMessage.success('已删除')
+    render()
   } catch (e) {
     ElMessage.error('删除失败: ' + (e as Error).message)
   }
@@ -54,9 +59,14 @@ async function render() {
   loading.value = true
   dotSource.value = ''
   try {
+    const r = repo.value || getDemoRepoPath() || ''
+    if (!r) {
+      ElMessage.warning('无可用 repo')
+      return
+    }
     const dot = kind.value === 'package'
-      ? await getPackageDot(repo.value)
-      : await getClassDot(repo.value, pkg.value || undefined)
+      ? await getPackageDot(r)
+      : await getClassDot(r, pkg.value || undefined)
     dotSource.value = dot
     await nextTick()
     if (graphContainer.value) {
@@ -69,7 +79,9 @@ async function render() {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
+  await syncRepos()
+  repo.value = getDemoRepoPath() || ''
   render()
 })
 </script>
@@ -88,7 +100,7 @@ onMounted(() => {
           <el-button :icon="Upload" :loading="uploading">上传 zip</el-button>
         </el-upload>
       </el-form-item>
-      <el-form-item v-if="repoStore.length" label="已上传">
+      <el-form-item v-if="repoStore.length" label="选择">
         <el-select v-model="repo" placeholder="选择 repo" style="width: 200px" @change="render">
           <el-option
             v-for="r in repoStore"
@@ -97,7 +109,14 @@ onMounted(() => {
             :value="r.path"
           />
         </el-select>
-        <el-button :icon="Delete" link type="danger" style="margin-left: 8px" @click="onDeleteRepo" />
+        <el-button
+          v-if="repoStore.find((r) => r.path === repo) && !repoStore.find((r) => r.path === repo)?.is_demo"
+          :icon="Delete"
+          link
+          type="danger"
+          style="margin-left: 8px"
+          @click="onDeleteRepo"
+        />
       </el-form-item>
       <el-form-item label="或路径">
         <el-input v-model="repo" placeholder="留空用内置 demo-repo" style="width: 240px" />

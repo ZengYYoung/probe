@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Upload, Delete, Refresh } from '@element-plus/icons-vue'
 import { submitTask, getReport, getStream, uploadRepo, deleteRepo, type RunResult, type Step } from '@/api'
-import { taskStore, addTask, updateTaskStatus, removeTask, clearTasks, type TaskRecord } from '@/stores/tasks'
-import { repoStore, addRepo, removeRepo } from '@/stores/repos'
+import { taskStore, addTask, updateTaskStatus, removeTask, clearTasks, syncTasks, type TaskRecord } from '@/stores/tasks'
+import { repoStore, addRepo, removeRepo, syncRepos, getDemoRepoPath } from '@/stores/repos'
 
 const goal = ref('')
 const targetRepo = ref('')
@@ -27,11 +27,20 @@ const statusType: Record<string, string> = {
   ERROR: 'danger',
 }
 
+onMounted(async () => {
+  await syncRepos()
+  await syncTasks()
+  // Default to the built-in demo repo if nothing is selected.
+  if (!targetRepo.value) {
+    targetRepo.value = getDemoRepoPath() || ''
+  }
+})
+
 async function onUpload(file: File) {
   uploading.value = true
   try {
     const resp = await uploadRepo(file)
-    addRepo({ repo_id: resp.repo_id, path: resp.path, name: resp.name, file_count: resp.file_count })
+    addRepo({ repo_id: resp.repo_id, path: resp.path, name: resp.name, file_count: resp.file_count, is_demo: false })
     targetRepo.value = resp.path
     ElMessage.success(`已上传: ${resp.name} (${resp.file_count} 文件)`)
   } catch (e) {
@@ -46,6 +55,10 @@ function onRepoSelect(path: string) {
 }
 
 async function onDeleteRepo(repoId: string) {
+  if (repoId === 'demo') {
+    ElMessage.warning('内置 demo 不可删除')
+    return
+  }
   try {
     await ElMessageBox.confirm('删除该 repo？解压目录会被清理。', '确认', { type: 'warning' })
   } catch {
@@ -55,7 +68,7 @@ async function onDeleteRepo(repoId: string) {
     await deleteRepo(repoId)
     removeRepo(repoId)
     if (targetRepo.value && !repoStore.some((r) => r.path === targetRepo.value)) {
-      targetRepo.value = ''
+      targetRepo.value = getDemoRepoPath() || ''
     }
     ElMessage.success('已删除')
   } catch (e) {
@@ -100,8 +113,11 @@ function startPolling(taskId: string) {
         ElMessage.success(`任务 ${taskId.slice(0, 8)}… 完成: ${rep.status}`)
       }
     } catch {
+      // Task no longer exists on backend — remove from history.
+      removeTask(taskId)
       clearInterval(pollingTimers[taskId])
       delete pollingTimers[taskId]
+      ElMessage.warning(`任务 ${taskId.slice(0, 8)}… 已失效（服务器已重启）`)
     }
   }, 2000)
 }
@@ -166,7 +182,7 @@ onUnmounted(() => {
         <el-select
           v-if="repoStore.length"
           v-model="targetRepo"
-          placeholder="选择已上传的 repo"
+          placeholder="选择 repo"
           style="width: calc(100% - 40px); margin-top: 8px"
           @change="onRepoSelect"
         >
@@ -178,7 +194,7 @@ onUnmounted(() => {
           />
         </el-select>
         <el-button
-          v-if="repoStore.length"
+          v-if="repoStore.length && repoStore.find((r) => r.path === targetRepo) && !repoStore.find((r) => r.path === targetRepo)?.is_demo"
           :icon="Delete"
           link
           type="danger"

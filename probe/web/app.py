@@ -320,15 +320,56 @@ def create_app(loop_factory: LoopFactory | None = None) -> FastAPI:
 
     @app.get("/repos")
     def list_repos() -> list:
-        """列出已上传的 repo（不含 path）。"""
-        return [
-            {"repo_id": rid, "name": r["name"], "file_count": r["file_count"]}
-            for rid, r in repos.items()
-        ]
+        """列出可用的 repo：内置 demo + 仍然存在的上传 repo。
+
+        过滤掉解压目录已被清理的 stale repo，避免前端显示无法访问的条目。
+        """
+        result: list[dict] = []
+
+        # Always include the built-in demo repo (always available).
+        demo_path = os.environ.get(_DEMO_REPO_ENV)
+        if demo_path and Path(demo_path).is_dir():
+            result.append({
+                "repo_id": "demo",
+                "name": "demo-repo (内置)",
+                "file_count": sum(1 for p in Path(demo_path).rglob("*") if p.is_file()),
+                "path": demo_path,
+                "is_demo": True,
+            })
+
+        # Include uploaded repos whose temp dirs still exist on disk.
+        stale_ids: list[str] = []
+        for rid, r in repos.items():
+            if Path(r["path"]).is_dir():
+                result.append({
+                    "repo_id": rid,
+                    "name": r["name"],
+                    "file_count": r["file_count"],
+                    "path": r["path"],
+                    "is_demo": False,
+                })
+            else:
+                stale_ids.append(rid)
+
+        # Clean up stale entries from the in-memory store.
+        for sid in stale_ids:
+            del repos[sid]
+
+        return result
 
     @app.get("/repos/{repo_id}")
     def get_repo(repo_id: str) -> dict:
         """按 repo_id 取 repo 详情（含 path）。"""
+        if repo_id == "demo":
+            demo_path = os.environ.get(_DEMO_REPO_ENV)
+            if not demo_path or not Path(demo_path).is_dir():
+                raise HTTPException(404, "demo repo not available")
+            return {
+                "repo_id": "demo",
+                "path": demo_path,
+                "name": "demo-repo (内置)",
+                "file_count": sum(1 for p in Path(demo_path).rglob("*") if p.is_file()),
+            }
         r = repos.get(repo_id)
         if r is None:
             raise HTTPException(404, "repo not found")
@@ -341,7 +382,9 @@ def create_app(loop_factory: LoopFactory | None = None) -> FastAPI:
 
     @app.delete("/repos/{repo_id}")
     def delete_repo(repo_id: str) -> dict:
-        """删除 repo：清理解压目录并从内存索引移除。"""
+        """删除 repo：清理解压目录并从内存索引移除。内置 demo 不可删。"""
+        if repo_id == "demo":
+            raise HTTPException(400, "cannot delete built-in demo repo")
         r = repos.get(repo_id)
         if r is None:
             raise HTTPException(404, "repo not found")

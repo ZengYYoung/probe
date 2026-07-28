@@ -1,4 +1,5 @@
 import { reactive, watch } from 'vue'
+import { getReport } from '@/api'
 
 export interface TaskRecord {
   task_id: string
@@ -36,4 +37,19 @@ export function removeTask(taskId: string) {
 
 export function clearTasks() {
   taskStore.splice(0, taskStore.length)
+}
+
+export async function syncTasks() {
+  const stale: string[] = []
+  await Promise.all(taskStore.map(async (t) => {
+    try {
+      const rep = await getReport(t.task_id)
+      if (rep.status && rep.status !== 'RUNNING') {
+        t.status = rep.status
+      }
+    } catch {
+      stale.push(t.task_id)
+    }
+  }))
+  stale.forEach(id => removeTask(id))
 }
