@@ -79,11 +79,11 @@ export interface AnalyzeResult {
   report: string
 }
 
-export async function analyzeRepo(target_repo: string): Promise<AnalyzeResult> {
+export async function analyzeRepo(target_repo: string, prompt?: string): Promise<AnalyzeResult> {
   const r = await fetch(`${base}/analyze`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ target_repo }),
+    body: JSON.stringify({ target_repo, prompt: prompt || '' }),
   })
   if (!r.ok) throw new Error(`analyze ${r.status}`)
   return r.json()

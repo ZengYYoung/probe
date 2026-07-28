@@ -94,6 +94,7 @@ class ApproveResponse(BaseModel):
 
 class AnalyzeRequest(BaseModel):
     target_repo: str
+    prompt: str = ""
 
 
 # ---------------------------------------------------------------------------
@@ -491,6 +492,8 @@ def create_app(loop_factory: LoopFactory | None = None) -> FastAPI:
         )
 
         prompt = _REPORT_PROMPT.format(code=code)
+        if req.prompt.strip():
+            prompt += "\n\n## 用户额外要求\n\n" + req.prompt.strip()
         messages = [Message(role="user", content=prompt)]
 
         try:

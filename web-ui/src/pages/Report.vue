@@ -2,13 +2,16 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Upload, Delete } from '@element-plus/icons-vue'
+import { marked } from 'marked'
 import { analyzeRepo, uploadRepo, deleteRepo, type AnalyzeResult } from '@/api'
 import { repoStore, addRepo, removeRepo, syncRepos, getDemoRepoPath } from '@/stores/repos'
 
 const targetRepo = ref('')
+const customPrompt = ref('')
 const analyzing = ref(false)
 const uploading = ref(false)
 const result = ref<AnalyzeResult | null>(null)
+const showPrompt = ref(false)
 
 onMounted(async () => {
   await syncRepos()
@@ -51,12 +54,16 @@ async function onAnalyze() {
   analyzing.value = true
   result.value = null
   try {
-    result.value = await analyzeRepo(targetRepo.value)
+    result.value = await analyzeRepo(targetRepo.value, customPrompt.value)
   } catch (e) {
     ElMessage.error('分析失败: ' + (e as Error).message)
   } finally {
     analyzing.value = false
   }
+}
+
+function renderMd(text: string): string {
+  return marked.parse(text) as string
 }
 </script>
 
@@ -95,23 +102,99 @@ async function onAnalyze() {
           @click="onDeleteRepo"
         />
       </el-form-item>
+      <el-form-item>
+        <el-button link type="primary" @click="showPrompt = !showPrompt">
+          {{ showPrompt ? '收起提示词' : '自定义提示词（可选）' }}
+        </el-button>
+      </el-form-item>
+      <el-form-item v-if="showPrompt">
+        <el-input
+          v-model="customPrompt"
+          type="textarea"
+          :rows="3"
+          placeholder="例如：重点关注安全问题、只分析核心模块、用英文输出..."
+        />
+      </el-form-item>
       <el-button type="primary" :loading="analyzing" @click="onAnalyze">分析</el-button>
     </el-form>
   </el-card>
 
   <el-card v-if="result">
     <template #header>分析报告</template>
-    <pre class="report">{{ result.report }}</pre>
+    <div class="md-body" v-html="renderMd(result.report)" />
   </el-card>
 </template>
 
 <style scoped>
-.report {
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 14px;
-  line-height: 1.8;
+.md-body :deep(h1),
+.md-body :deep(h2),
+.md-body :deep(h3),
+.md-body :deep(h4) {
+  margin-top: 1.2em;
+  margin-bottom: 0.5em;
+  font-weight: 600;
   color: var(--el-text-color-primary);
+}
+.md-body :deep(h2) {
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+.md-body :deep(p) {
+  margin: 0.6em 0;
+  line-height: 1.8;
+}
+.md-body :deep(ul),
+.md-body :deep(ol) {
+  padding-left: 1.8em;
+  margin: 0.5em 0;
+}
+.md-body :deep(li) {
+  margin: 0.3em 0;
+  line-height: 1.7;
+}
+.md-body :deep(code) {
+  background: var(--el-fill-color-light);
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+  font-size: 0.9em;
+  font-family: 'Menlo', 'Monaco', 'Consolas', monospace;
+}
+.md-body :deep(pre) {
+  background: var(--el-fill-color-dark);
+  color: var(--el-text-color-primary);
+  padding: 1em;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 0.8em 0;
+}
+.md-body :deep(pre code) {
+  background: none;
+  padding: 0;
+}
+.md-body :deep(table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.8em 0;
+}
+.md-body :deep(th),
+.md-body :deep(td) {
+  border: 1px solid var(--el-border-color-lighter);
+  padding: 0.5em 0.8em;
+  text-align: left;
+}
+.md-body :deep(th) {
+  background: var(--el-fill-color-light);
+  font-weight: 600;
+}
+.md-body :deep(blockquote) {
+  border-left: 4px solid var(--el-color-primary);
+  padding-left: 1em;
+  margin: 0.8em 0;
+  color: var(--el-text-color-secondary);
+}
+.md-body :deep(hr) {
+  border: none;
+  border-top: 1px solid var(--el-border-color-lighter);
+  margin: 1.5em 0;
 }
 </style>
