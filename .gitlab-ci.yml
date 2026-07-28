@@ -1,10 +1,9 @@
-image: python:3.12-slim
+image: python:3.12-slim-bookworm
 stages: [test, build]
 unit-test:
   stage: test
   before_script:
-    - apt-get update -qq
-    - apt-get install -y -qq default-jdk maven graphviz
+    - apt-get update -qq && apt-get install -y -qq --no-install-recommends default-jdk-headless maven graphviz && rm -rf /var/lib/apt/lists/*
   script:
     - pip install -e ".[dev]"
     - pytest -q -m 'not integration'
