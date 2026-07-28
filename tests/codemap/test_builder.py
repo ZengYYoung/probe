@@ -30,6 +30,19 @@ def test_parse_error_skipped(tmp_path):
     assert all(t.name != "Broken" for t in g.types)  # 跳过不崩
 
 
+def test_interface_not_silently_dropped(tmp_path):
+    """Regression: InterfaceDeclaration has no ``implements`` attribute;
+    accessing ``decl.implements`` crashed and the file was silently skipped."""
+    p = tmp_path / "src/IFetch.java"
+    p.parent.mkdir(parents=True)
+    p.write_text("package com.x; public interface IFetch { void fetch(); }")
+    g = build_graph(tmp_path)
+    names = {t.name for t in g.types}
+    assert "IFetch" in names
+    iface = next(t for t in g.types if t.name == "IFetch")
+    assert iface.kind == "interface"
+
+
 def test_incremental_cache(tmp_path):
     p = tmp_path / "src/A.java"
     p.parent.mkdir(parents=True)

@@ -104,7 +104,7 @@ def _parse_file(contents: str) -> tuple[list[Type], list[Edge]]:
         sup = decl.extends.name if getattr(decl, "extends", None) else None
         if sup:
             edges.append(Edge(kind="extends", src=name, dst=sup))
-        impls = [i.name for i in (decl.implements or [])]
+        impls = [i.name for i in (getattr(decl, "implements", None) or [])]
         for i in impls:
             edges.append(Edge(kind="implements", src=name, dst=i))
 
