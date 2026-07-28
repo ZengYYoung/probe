@@ -4,6 +4,11 @@ Feedback signal (SPEC §6) for the lint stage. Consumes
 :mod:`probe.validators.base` and emits :class:`Failure` objects whose category
 is :attr:`Category.LINT_VIOLATION`. The runner is injected so tests can run
 without network/maven.
+
+Project structure detection: before shelling out to Maven, the validator
+locates the Maven root via :func:`probe.validators.project.find_maven_root`.
+If ``pom.xml`` is in a subdirectory, Maven runs there and the checkstyle
+result is read from that subdirectory's ``target/checkstyle-result.xml``.
 """
 
 from __future__ import annotations
@@ -20,6 +25,7 @@ from probe.validators.base import (
     Validator,
     signature,
 )
+from probe.validators.project import find_maven_root
 
 #: ``mvn checkstyle:check`` — run Checkstyle and emit ``target/checkstyle-result.xml``.
 LINT_CMD = "mvn checkstyle:check"
@@ -54,8 +60,13 @@ class LintValidator(Validator):
         return proc.returncode, proc.stdout, proc.stderr
 
     def run(self, repo: str, changed_files: list[str] | None = None) -> FailureReport:
+        maven_dir, reason = find_maven_root(repo)
+
+        if maven_dir is None:
+            return self._no_pom_report(reason)
+
         try:
-            self._runner(LINT_CMD, repo)
+            self._runner(LINT_CMD, maven_dir)
         except Exception:
             return FailureReport(
                 per_validator_status={"lint": "UNAVAILABLE"},
@@ -64,7 +75,7 @@ class LintValidator(Validator):
                 summary={},
             )
 
-        result_file = Path(repo) / RESULT_PATH
+        result_file = Path(maven_dir) / RESULT_PATH
         if not result_file.exists():
             return FailureReport(
                 per_validator_status={"lint": "UNAVAILABLE"},
@@ -81,6 +92,35 @@ class LintValidator(Validator):
             failures=failures,
             signature=signature(failures),
             summary=summary,
+        )
+
+    @staticmethod
+    def _no_pom_report(reason: str) -> FailureReport:
+        if reason == "gradle":
+            msg = (
+                "No pom.xml found but build.gradle detected — "
+                "Probe only deeply supports Maven (SPEC §10 R1)."
+            )
+        else:
+            msg = (
+                "No pom.xml found in the repository. "
+                "Probe requires a Maven-managed Java project."
+            )
+        f = Failure(
+            validator="lint",
+            severity="error",
+            file="",
+            line=0,
+            category=Category.BUILD_CONFIG_ERROR,
+            message=msg,
+            raw="",
+            hint="ensure the uploaded zip contains pom.xml at the root",
+        )
+        return FailureReport(
+            per_validator_status={"lint": "FAIL"},
+            failures=[f],
+            signature=signature([f]),
+            summary={"BUILD_CONFIG_ERROR": 1},
         )
 
     @staticmethod

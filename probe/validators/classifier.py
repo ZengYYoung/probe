@@ -73,10 +73,16 @@ def classify_report(report: FailureReport) -> FailureReport:
     Pure: neither ``report`` nor any :class:`Failure` inside it is mutated.
     Each failure is deep-copied, classified, then ``signature``/``summary``
     are recomputed. ``per_validator_status`` is carried over unchanged.
+
+    Hint preservation: when the validator already set a specific, non-empty
+    ``hint``, the classifier does **not** overwrite it with a generic rule
+    hint. The classifier only fills in hints the validator left blank —
+    validators have more context about the specific failure.
     """
     new_failures: list[Failure] = []
     for f in report.failures:
         cat, hint = classify(f)
+        final_hint = f.hint if f.hint else hint
         new_failures.append(
             Failure(
                 validator=f.validator,
@@ -86,7 +92,7 @@ def classify_report(report: FailureReport) -> FailureReport:
                 category=cat,
                 message=f.message,
                 raw=f.raw,
-                hint=hint,
+                hint=final_hint,
             )
         )
 

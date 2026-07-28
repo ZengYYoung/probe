@@ -10,6 +10,7 @@ SUREFIRE = '''<testsuite name="com.x.FooTest" tests="2" failures="1" errors="0" 
 
 
 def test_parses_failure(tmp_path):
+    (tmp_path / "pom.xml").write_text("<project/>")
     d = tmp_path / "target" / "surefire-reports"
     d.mkdir(parents=True)
     (d / "TEST-com.x.FooTest.xml").write_text(SUREFIRE)
@@ -24,6 +25,7 @@ def test_parses_failure(tmp_path):
 
 
 def test_error_category(tmp_path):
+    (tmp_path / "pom.xml").write_text("<project/>")
     xml = '''<testsuite name="com.x.BarTest" tests="1" failures="0" errors="1" skipped="0">
 <testcase name="testC" classname="com.x.BarTest"><error type="NullPointerException">NPE
 	at com.x.BarTest.testC(BarTest.java:7)</error></testcase></testsuite>'''
@@ -36,6 +38,7 @@ def test_error_category(tmp_path):
 
 
 def test_all_pass(tmp_path):
+    (tmp_path / "pom.xml").write_text("<project/>")
     d = tmp_path / "target" / "surefire-reports"
     d.mkdir(parents=True)
     (d / "TEST-com.x.OkTest.xml").write_text(
@@ -48,6 +51,7 @@ def test_all_pass(tmp_path):
 
 
 def test_skipped_is_missing(tmp_path):
+    (tmp_path / "pom.xml").write_text("<project/>")
     d = tmp_path / "target" / "surefire-reports"
     d.mkdir(parents=True)
     (d / "TEST-com.x.SkTest.xml").write_text(
@@ -56,3 +60,29 @@ def test_skipped_is_missing(tmp_path):
     v = TestValidator(runner=lambda cmd, cwd: (0, "", ""))
     r = v.run(repo=str(tmp_path))
     assert any(f.category == Category.TEST_MISSING for f in r.failures)
+
+
+def test_no_pom_returns_specific_error(tmp_path):
+    """When no pom.xml exists, return BUILD_CONFIG_ERROR instead of
+    letting Maven fail with a cryptic 'no POM' message."""
+    (tmp_path / "README.md").write_text("not a maven project")
+    v = TestValidator(runner=lambda cmd, cwd: (1, "", "no POM"))
+    r = v.run(repo=str(tmp_path))
+    assert r.per_validator_status.get("test") == "FAIL"
+    assert r.failures[0].category == Category.BUILD_CONFIG_ERROR
+    assert "pom.xml" in r.failures[0].message.lower()
+
+
+def test_pom_in_subdir_finds_surefire(tmp_path):
+    """When pom.xml is in a subdirectory, run Maven there and find
+    surefire reports under subdir/target/surefire-reports."""
+    sub = tmp_path / "my-module"
+    sub.mkdir()
+    (sub / "pom.xml").write_text("<project/>")
+    d = sub / "target" / "surefire-reports"
+    d.mkdir(parents=True)
+    (d / "TEST-com.x.FooTest.xml").write_text(SUREFIRE)
+    v = TestValidator(runner=lambda cmd, cwd: (0, "", ""))
+    r = v.run(repo=str(tmp_path))
+    assert r.per_validator_status.get("test") == "FAIL"
+    assert any(f.category == Category.TEST_FAILURE for f in r.failures)

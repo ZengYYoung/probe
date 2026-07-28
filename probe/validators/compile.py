@@ -6,6 +6,13 @@ category is a coarse local guess (``COMPILE_SYNTAX`` vs
 ``COMPILE_MISSING_SYMBOL``); the T17 classifier refines these later.
 
 The runner is injected so tests can run without network/maven.
+
+Project structure detection: before shelling out to Maven, the validator
+locates the Maven root via :func:`probe.validators.project.find_maven_root`.
+If ``pom.xml`` is in a subdirectory (common with uploaded zips), Maven runs
+there. If no ``pom.xml`` is found at all, a specific, actionable
+``BUILD_CONFIG_ERROR`` is returned — instead of letting Maven fail with a
+cryptic "no POM" message.
 """
 
 from __future__ import annotations
@@ -21,6 +28,7 @@ from probe.validators.base import (
     Validator,
     signature,
 )
+from probe.validators.project import find_maven_root
 
 #: ``mvn -q -DskipTests test-compile`` — compile main+test sources, no tests run.
 COMPILE_CMD = "mvn -q -DskipTests test-compile"
@@ -58,8 +66,13 @@ class CompileValidator(Validator):
         return proc.returncode, proc.stdout, proc.stderr
 
     def run(self, repo: str, changed_files: list[str] | None = None) -> FailureReport:
+        maven_dir, reason = find_maven_root(repo)
+
+        if maven_dir is None:
+            return self._no_pom_report(reason)
+
         try:
-            exit_code, stdout, stderr = self._runner(COMPILE_CMD, repo)
+            exit_code, stdout, stderr = self._runner(COMPILE_CMD, maven_dir)
         except Exception:
             return FailureReport(
                 per_validator_status={"compile": "UNAVAILABLE"},
@@ -96,6 +109,46 @@ class CompileValidator(Validator):
             failures=failures,
             signature=signature(failures),
             summary=summary,
+        )
+
+    @staticmethod
+    def _no_pom_report(reason: str) -> FailureReport:
+        """Build a specific, actionable BUILD_CONFIG_ERROR when no pom.xml."""
+        if reason == "gradle":
+            msg = (
+                "No pom.xml found but build.gradle detected — "
+                "Probe only deeply supports Maven (SPEC §10 R1). "
+                "Gradle is best-effort and not fully supported."
+            )
+            hint = (
+                "convert the project to Maven, or ensure the uploaded zip "
+                "has pom.xml at the root"
+            )
+        else:
+            msg = (
+                "No pom.xml found in the repository. "
+                "Probe requires a Maven-managed Java project."
+            )
+            hint = (
+                "ensure the uploaded zip contains pom.xml at the root; "
+                "if pom.xml is in a subdirectory, restructure the zip so "
+                "pom.xml is at the top level"
+            )
+        f = Failure(
+            validator="compile",
+            severity="error",
+            file="",
+            line=0,
+            category=Category.BUILD_CONFIG_ERROR,
+            message=msg,
+            raw="",
+            hint=hint,
+        )
+        return FailureReport(
+            per_validator_status={"compile": "FAIL"},
+            failures=[f],
+            signature=signature([f]),
+            summary={"BUILD_CONFIG_ERROR": 1},
         )
 
     @staticmethod

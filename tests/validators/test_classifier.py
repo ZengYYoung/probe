@@ -108,3 +108,26 @@ def test_classify_report_does_not_mutate_input():
     assert updated is not report
     assert updated.failures[0].category == Category.COMPILE_MISSING_SYMBOL
     assert updated.signature == signature(updated.failures)
+
+
+def test_classify_report_preserves_nonempty_hint():
+    """When the validator already set a specific, actionable hint, the
+    classifier must not overwrite it with a generic one."""
+    f = Failure(
+        validator="compile",
+        severity="error",
+        file="",
+        line=0,
+        category=Category.BUILD_CONFIG_ERROR,
+        message="No pom.xml found in the repository",
+        raw="",
+        hint="ensure the uploaded project is a Maven project with pom.xml at root",
+    )
+    report = FailureReport(
+        per_validator_status={"compile": "FAIL"},
+        failures=[f],
+        signature="x",
+        summary={"BUILD_CONFIG_ERROR": 1},
+    )
+    updated = classify_report(report)
+    assert updated.failures[0].hint == "ensure the uploaded project is a Maven project with pom.xml at root"

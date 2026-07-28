@@ -6,6 +6,11 @@ category distinguishes assertion failures (``TEST_FAILURE``), test errors
 (``TEST_ERROR``), and skipped tests (``TEST_MISSING``).
 
 The runner is injected so tests can run without network/maven.
+
+Project structure detection: before shelling out to Maven, the validator
+locates the Maven root via :func:`probe.validators.project.find_maven_root`.
+If ``pom.xml`` is in a subdirectory, Maven runs there and surefire reports
+are read from that subdirectory's ``target/surefire-reports``.
 """
 
 from __future__ import annotations
@@ -24,6 +29,7 @@ from probe.validators.base import (
     Validator,
     signature,
 )
+from probe.validators.project import find_maven_root
 
 #: ``mvn test`` — run all unit tests.
 TEST_CMD = "mvn test"
@@ -65,8 +71,13 @@ class TestValidator(Validator):
         return proc.returncode, proc.stdout, proc.stderr
 
     def run(self, repo: str, changed_files: list[str] | None = None) -> FailureReport:
+        maven_dir, reason = find_maven_root(repo)
+
+        if maven_dir is None:
+            return self._no_pom_report(reason)
+
         try:
-            self._runner(TEST_CMD, repo)
+            self._runner(TEST_CMD, maven_dir)
         except Exception:
             return FailureReport(
                 per_validator_status={"test": "UNAVAILABLE"},
@@ -75,7 +86,7 @@ class TestValidator(Validator):
                 summary={},
             )
 
-        report_dir = os.path.join(repo, "target", "surefire-reports")
+        report_dir = os.path.join(maven_dir, "target", "surefire-reports")
         failures: list[Failure] = []
         for xml_path in sorted(glob.glob(os.path.join(report_dir, "TEST-*.xml"))):
             failures.extend(self._parse_file(xml_path))
@@ -87,6 +98,35 @@ class TestValidator(Validator):
             failures=failures,
             signature=signature(failures),
             summary=summary,
+        )
+
+    @staticmethod
+    def _no_pom_report(reason: str) -> FailureReport:
+        if reason == "gradle":
+            msg = (
+                "No pom.xml found but build.gradle detected — "
+                "Probe only deeply supports Maven (SPEC §10 R1)."
+            )
+        else:
+            msg = (
+                "No pom.xml found in the repository. "
+                "Probe requires a Maven-managed Java project."
+            )
+        f = Failure(
+            validator="test",
+            severity="error",
+            file="",
+            line=0,
+            category=Category.BUILD_CONFIG_ERROR,
+            message=msg,
+            raw="",
+            hint="ensure the uploaded zip contains pom.xml at the root",
+        )
+        return FailureReport(
+            per_validator_status={"test": "FAIL"},
+            failures=[f],
+            signature=signature([f]),
+            summary={"BUILD_CONFIG_ERROR": 1},
         )
 
     @staticmethod
