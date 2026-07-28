@@ -22,7 +22,7 @@ def test_config_load_none_path_returns_defaults():
     assert cfg.validators.compile is True
     assert cfg.validators.test is True
     assert cfg.validators.lint is True
-    assert cfg.llm.model == "glm-5.2"
+    assert cfg.llm.model == "deepseek-v4-flash"
     assert cfg.llm.temperature == 0.2
     assert "git push --force" in cfg.guardrails.dangerous_patterns
     assert cfg.guardrails.allowed_paths == []

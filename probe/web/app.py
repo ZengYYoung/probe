@@ -110,7 +110,7 @@ def _default_loop_factory(repo: str) -> AgentLoop:
     config = Config.load(None, {})
     repo_path = Path(repo)
     llm = OpenAICompatibleClient(
-        base_url=os.environ.get("LLM_BASE_URL", ""),
+        base_url=os.environ.get("LLM_BASE_URL", "https://api.deepseek.com"),
         api_key=os.environ.get("LLM_API_KEY", ""),
         model=config.llm.model,
     )

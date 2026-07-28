@@ -53,7 +53,7 @@ class Validators(BaseModel):
 
 
 class LLM(BaseModel):
-    model: str = "glm-5.2"
+    model: str = "deepseek-v4-flash"
     temperature: float = 0.2
 
 
