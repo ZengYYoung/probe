@@ -1,4 +1,4 @@
-image: registry.cn-hangzhou.aliyuncs.com/library/python:3.12-slim-bookworm
+image: hub-mirror.c.163.com/library/python:3.12-slim-bookworm
 stages: [test]
 unit-test:
   stage: test
