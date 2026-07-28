@@ -12,6 +12,8 @@ Probe 是一个 **Java 代码分析工具**，通过读取项目源码并调用 
 WebUI 基于 Vue 3 + Vite + Element Plus，三个页面：**代码报告**（选 repo → 分析 → markdown 报告）、**代码地图**（包图/类图交互渲染）、**机制演示**（A.6 三大确定性机制）。
 
 > 线上地址：https://probe-rgw2.onrender.com
+> GitHub:https://github.com/ZengYYoung/probe
+> njuGitlab:https://git.nju.edu.cn/young1117/probe 
 
 ## 安装
 
