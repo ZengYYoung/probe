@@ -2,20 +2,20 @@
 
 ## 简介
 
-Probe 是一个**自实现的 Python coding-agent harness**，面向 Java 代码库。它不依赖任何外部 agent 框架（无 LangChain / AutoGen / smolagents），全部回路（LLM 调用、工具注册、护栏、校验、反馈、记忆）均由本仓手写，因此每一条机制都可被 mock 并被单测覆盖。
+Probe 是一个 **Java 代码分析工具**，通过读取项目源码并调用 DeepSeek LLM 生成结构化分析报告。同时提供代码地图可视化（包图/类图）和确定性机制演示。
 
-设计重心：
-- **反馈闭环（首要）**：确定性校验（编译/测试/lint）→ 失败分类（compile/test/lint/none）→ 自修正（同签名连续 K 轮 FAIL 触发 `BLOCKED_NO_PROGRESS`，避免空转）。
-- **代码地图（次要）**：基于 `javalang` 解析出包图 / 类图，计算影响闭包，供 agent 在改码前定位受影响范围。
-- **安全边界**：API key 不进源码 / git / 日志；危险动作护栏 + HITL；路径围栏 `safe_path`；status 不回显明文 key。
+核心功能：
+- **代码报告**：上传 Java 项目 zip 或选择内置 demo，自动采集全部源码发给 DeepSeek，返回包含项目概述、代码结构、问题发现、改进建议的分析报告。支持自定义提示词。
+- **代码地图**：基于 `javalang` 解析 Java 源码，渲染包图/类图（d3-graphviz），支持 package 过滤。
+- **机制演示**：一键运行三大确定性机制（护栏拦截 / 反馈闭环 / 无进展停机），纯 mock 无需 key。
 
-WebUI 基于 Vue 3 + Vite + Element Plus，含四个页面：**任务**（提交 + 历史 + 步骤时间线）、**代码地图**（包图/类图 d3-graphviz 渲染）、**HITL 审批**（任务批准/拒绝 + 护栏演示）、**机制演示**（A.6 三大确定性机制）。
+WebUI 基于 Vue 3 + Vite + Element Plus，三个页面：**代码报告**（选 repo → 分析 → markdown 报告）、**代码地图**（包图/类图交互渲染）、**机制演示**（A.6 三大确定性机制）。
 
-> 适用场景：在 Maven 管理的 Java 仓上做"让测试变绿"等可验证任务。Gradle 仅尽力而为。
+> 线上地址：https://probe-rgw2.onrender.com
 
 ## 安装
 
-需要 Python ≥ 3.12，以及系统级 **JDK + Maven + graphviz**（校验器跑 `mvn`，图布局用 `graphviz`）。
+需要 Python ≥ 3.12，以及系统级 **JDK + Maven + graphviz**（校验器用，图布局用 `graphviz`）。
 
 ```bash
 python -m venv .venv
@@ -23,18 +23,12 @@ python -m venv .venv
 pip install -e ".[dev]"
 ```
 
-macOS 示例（系统依赖）：
-
-```bash
-brew install openjdk@17 maven graphviz
-```
-
 前端开发（仅改 WebUI 时需要，运行时无需 Node——Docker 多阶段已构建）：
 
 ```bash
 cd web-ui
 npm install
-npm run dev      # Vite 热重载 :5173, 代理 /tasks /map /demo 到 :8000
+npm run dev      # Vite 热重载 :5173
 ```
 
 ## 运行
@@ -45,57 +39,43 @@ npm run dev      # Vite 热重载 :5173, 代理 /tasks /map /demo 到 :8000
 make test
 ```
 
-配置 LLM key（首次运行引导会隐藏录入，使用 `getpass`，存入 Keychain；无 Keychain 时回退 `.env`）：
-
-```bash
-python -m probe init
-```
-
-跑一个任务（agent 闭环 + 反馈 + 自修正）：
-
-```bash
-python -m probe run --goal "让测试变绿" --repo /path/to/java-repo
-```
-
-生成代码地图（包图 / 类图 + 影响闭包）：
-
-```bash
-python -m probe map --repo /path/to/java-repo
-```
-
 ### WebUI
 
 启动：
 
 ```bash
 uvicorn probe.web.app:create_app --factory
-# 浏览器打开 http://127.0.0.1:8000/#/tasks
+# 浏览器打开 http://127.0.0.1:8000/#/report
 ```
 
-四个页面：
-- **任务** (`/#/tasks`)：提交 goal + target_repo，查看历史任务的步骤时间线与最终报告。
+三个页面：
+- **代码报告** (`/#/report`)：选择 repo（内置 demo 或上传 zip），点击「分析」，查看 LLM 生成的 markdown 报告。可展开自定义提示词输入框补充分析要求。
 - **代码地图** (`/#/map`)：渲染包图/类图（d3-graphviz），支持 package 过滤，可展开 DOT 源码。repo 留空时用内置 demo-repo。
-- **HITL 审批** (`/#/approval`)：对已提交任务记录批准/拒绝决策；一键演示护栏对 `rm -rf /` 的确定性拦截。
 - **机制演示** (`/#/demo`)：一键运行 A.6 三大确定性机制（护栏拦截 / 反馈闭环 / 无进展停机），纯 mock 无 key。
 
-新端点 `GET /demo` 返回 `{guardrail, feedback_loop, no_progress}` JSON，供演示页调用。
+上传 Java 项目：在代码报告页或代码地图页点「上传 zip」按钮，选择一个 `.zip` 压缩的 Java 仓。后端安全解压到临时目录（防 zip slip），返回的 path 自动填入选项。上传的 repo 在进程内存储，重启后失效（需重新上传）。大小限制 50MB。
 
-上传 Java 项目：在任务页或代码地图页点"上传 zip"按钮，选择一个 `.zip` 压缩的 Java 仓（含 `pom.xml` + 源码）。后端安全解压到临时目录（防 zip slip），返回的 path 自动填入 `target_repo` / `repo` 参数。上传的 repo 在进程内存储，重启后失效（需重新上传）。大小限制 50MB。
+内置 demo-repo 随 Docker 镜像或本地开发环境自动可用，无需上传。
 
-机制演示（A.6，纯 mock，无 key 无网络，CLI 版）：
+### API
+
+`POST /analyze` — 读取项目源码，发给 DeepSeek LLM，返回分析报告：
 
 ```bash
-python demo_mechanisms.py
+curl -X POST http://localhost:8000/analyze \
+  -H 'Content-Type: application/json' \
+  -d '{"target_repo": "/path/to/java-repo", "prompt": "重点关注安全问题"}'
 ```
 
-## WebUI 截图
+响应：`{"report": "### 1. 项目概述\n..."}`（markdown 格式）。
 
-> 部署后访问线上地址体验：https://probe-rgw2.onrender.com
+`GET /repos` — 列出可用 repo（内置 demo + 上传的 repo）。
 
-- 任务页：提交表单 + 历史表格 + 详情抽屉（步骤时间线）。
-- 代码地图：包图/类图 d3-graphviz 渲染 + DOT 源码折叠。
-- HITL 审批：任务选择 + 批准/拒绝 + 护栏拦截演示。
-- 机制演示：三卡片 + 反馈闭环时间线。
+`POST /repos/upload` — 上传 zip，返回 `repo_id` + `path`。
+
+`GET /map/package.dot` / `GET /map/class.dot` — 代码地图 DOT 源码。
+
+`GET /demo` — 机制演示 JSON。
 
 ## 分发
 
@@ -112,88 +92,66 @@ Dockerfile 为**多阶段构建**：Stage 1 用 `node:20-alpine` 构建前端（
 
 ```bash
 docker build -t probe .
-docker run -p 8000:8000 -v "$PWD/.env:/app/.env:ro" probe
+docker run -p 8000:8000 \
+  -e LLM_API_KEY=your-deepseek-key \
+  probe
 ```
 
-容器内 **Keychain 不可用**，因此 key 必须以只读挂载 `.env` 的方式提供（建议本机 `chmod 600 .env`），或在目标机进入容器后执行 `python -m probe init` 录入。`.env` 为明文文件，进程环境可见，**生产环境请使用平台 secrets**（如 Render Environment / Fly Secrets / GitLab CI variables），不要把真实 `.env` 随镜像一起提交。
-
-镜像内置 `demo-repo/`（一个含故意失败测试的小 Maven Java 工程），并设 `PROBE_DEMO_REPO=/app/demo-repo`，因此部署后 `/#/map` 与 `/map/package.dot` 不带 `repo` 参数即可直接渲染内置 demo 仓的结构图。
+镜像内置 `demo-repo/`（一个含故意失败测试的小 Maven Java 工程），并设 `PROBE_DEMO_REPO=/app/demo-repo`，因此部署后 `/#/report` 与 `/#/map` 可直接使用内置 demo。
 
 ### Render
 
 **本项目线上地址**：https://probe-rgw2.onrender.com
 
-### Fly.io（备选：有 CLI）
+需在 Render Dashboard 设置环境变量：
+- `LLM_API_KEY` — DeepSeek API key
 
-`fly.toml` 已配置：
-
-```toml
-app = "probe"
-[build]
-  dockerfile = "Dockerfile"
-[http_service]
-  internal_port = 8000
-  force_https = true
-  auto_stop_machines = true
-  auto_start_machines = true
-  min_machines_running = 0
-```
-
-部署：
-
-```bash
-fly deploy
-fly secrets set LLM_API_KEY=... LLM_BASE_URL=...   # 推荐，优于挂载 .env
-```
+默认 `LLM_BASE_URL` 已配置为 `https://api.deepseek.com`，模型为 `deepseek-v4-flash`。
 
 ### CI
 
-GitHub Actions（`.github/workflows/ci.yml`）与 `.gitlab-ci.yml` 均含 `unit-test` job，只跑 mock 单测（`pytest -m 'not integration'`），不接触真实 key / LLM；`build-image` job 验证 Docker 多阶段构建（含前端 Vite 构建）。
+GitHub Actions（`.github/workflows/ci.yml`）含 `unit-test` job，只跑 mock 单测，不接触真实 key / LLM。
 
 ## 目录结构
 
 ```
 probe/
-├── core/          # AgentLoop、Task、Status —— 闭环主循环
-├── llm/           # LLM 抽象(base) + mock + OpenAI 兼容客户端
-├── tools/         # 工具注册表 + fs(读写/路径围栏 safe_path) + shell
+├── core/          # AgentLoop、Task、Status —— 闭环主循环（保留，报告模式不使用）
+├── llm/           # LLM 抽象(base) + mock + OpenAI 兼容客户端（接入 DeepSeek）
+├── tools/         # 工具注册表 + fs(读写/路径围栏) + shell
 ├── guardrail/     # 危险动作护栏 + HITL 确认
-├── validators/    # 编译/测试/lint 校验 + pipeline + 失败分类 classifier
+├── validators/    # 编译/测试/lint 校验 + pipeline + 失败分类 + 项目结构检测
 ├── feedback/      # SelfCorrector：同签名连续 FAIL 触发 BLOCKED_NO_PROGRESS
-├── codemap/       # builder(解析 Java) + graph + renderer(包图/类图 dot) + retriever(影响闭包)
+├── codemap/       # builder(解析 Java) + graph + renderer(包图/类图 dot) + retriever
 ├── memory/        # 会话记忆 store
 ├── report/        # 运行报告渲染
-├── demo.py        # A.6 三个确定性机制演示（probe 包内，供 /demo 端点调用）
-├── web/           # FastAPI + SSE + 图可视化 (app.py, static/)
-│   └── static/    # Vite 构建产物（gitignored，保留 .gitkeep）
-├── cli.py         # argparse 入口: init|run|map|creds
-├── config.py      # Config 加载 (.env / 环境变量)
-└── credentials.py # CredentialStore (Keychain 优先, .env 回退) + mask
-web-ui/            # Vue 3 + Vite + Element Plus 前端工程（构建输出到 probe/web/static/）
-demo_mechanisms.py # A.6 演示 CLI 入口（shim → probe.demo）
+├── demo.py        # A.6 三个确定性机制演示
+├── web/           # FastAPI + 图可视化 (app.py, static/)
+│   └── static/    # Vite 构建产物（gitignored）
+├── cli.py         # argparse 入口
+├── config.py      # Config 加载 (默认 deepseek-v4-flash)
+└── credentials.py # CredentialStore (Keychain 优先, .env 回退)
+web-ui/            # Vue 3 + Vite + Element Plus 前端
+demo_mechanisms.py # A.6 演示 CLI 入口
 tests/             # 各模块 mock 单测
-Dockerfile         # 多阶段: node:20-alpine 构建前端 + python:3.12-slim 运行时
-fly.toml           # Fly.io 部署配置
-.env.example       # 环境变量占位 (无真实 key)
+Dockerfile         # 多阶段: node + python
+.env.example       # 环境变量占位
 ```
 
 ## 安全边界
 
-- **key 不进源码 / git / 日志**：`.gitignore` 已忽略 `.env`、`.env.*`（保留 `.env.example`）、`.probe/`、`*.key`、`*.pem`、`probe/web/static/*`（构建产物）、`web-ui/node_modules/`。
-- **`.env` 明文风险**：`.env` 是明文文件，对进程环境可见，对同主机其它用户可能可读（建议 `chmod 600`）。容器内 Keychain 不可用，故容器场景必须挂载 `.env` 或用平台 secrets；**生产用 secrets**。
-- **路径围栏 `safe_path`**：所有文件工具调用经 `safe_path` 校验，禁止越出 `--repo` 根目录的路径操作。
-- **危险动作护栏 + HITL**：识别到危险命令（`rm -rf` / `git push --force` / 写入仓库外路径等）时拦截并要求人工确认（HITL）。
-- **首次运行引导隐藏录入**：`probe init` 使用 `getpass.getpass`，终端不回显。
-- **status 不回显明文**：`probe creds` 仅打印 `mask()` 后的形如 `sk-…abcd` 的掩码。
-- **CI 只跑 mock 单测**：`unit-test` job 不解密、不注入真实 key，集成测试带 `integration` marker 默认被 deselect。
+- **key 不进源码 / git / 日志**：`.gitignore` 忽略 `.env`、`.env.*`、`.probe/`、`*.key`、`*.pem`。
+- **路径围栏**：所有文件操作限定在 `target_repo` 之内（路径规范化后校验，防 `../` 越界）。
+- **危险动作护栏**：识别到危险命令（`rm -rf` / `git push --force` / 写入仓库外路径等）时拦截。
+- **zip slip 防护**：上传 zip 解压时校验每个文件路径，防止路径穿越攻击。
+- **CI 只跑 mock 单测**：`unit-test` job 不解密、不注入真实 key。
 
 ## 已知限制
 
-- 构建系统深度支持 **Maven**；Gradle 仅尽力而为（调 `./gradlew` 但不解析依赖图）。
-- `javalang` 对 Java 新语法（records / sealed / 模式匹配等）可能解析不全，遇此会退化为尽力而为的文本级处理。
-- CI `unit-test` job 只跑 mock 单测；真实 LLM 闭环需本地或部署环境手动验证。
-- 反馈闭环的 `BLOCKED_NO_PROGRESS` 阈值 K 为可调常量，过小会过早放弃，过大可能空转烧 token。
-- WebUI 任务历史为客户端 localStorage 存储（进程内后端无任务列表端点）；agent 主循环同步执行，HITL 审批为"记录决策"语义，真实异步暂停属未来增强。
+- LLM 分析报告依赖 DeepSeek API 可用性；API key 未配置时 `/analyze` 返回 502。
+- 源码采集有大小限制（单文件 50KB，总量 300KB），超大项目会截断。
+- 代码地图的 `javalang` 对 Java 新语法（records / sealed / 模式匹配等）可能解析不全。
+- 上传的 repo 存储在进程内临时目录，重启后失效。
 
 ## 第三方依赖与许可证
 
@@ -203,9 +161,10 @@ fly.toml           # Fly.io 部署配置
 | httpx | LLM HTTP 客户端 | BSD-3-Clause |
 | keyring | 本机凭据存储 (Keychain) | MIT |
 | javalang | Java 源码解析 | MIT |
-| fastapi | WebUI / SSE | MIT |
+| fastapi | WebUI API | MIT |
 | uvicorn | ASGI server | BSD-3-Clause |
 | vue / element-plus / vite | WebUI 前端 | MIT |
+| marked | Markdown 渲染 | MIT |
 | d3-graphviz | 浏览器内 DOT 渲染 | BSD-3-Clause |
 | graphviz (系统) | dot 图布局 | CPL-1.0 (Eclipse) |
 
