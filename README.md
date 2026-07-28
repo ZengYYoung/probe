@@ -90,7 +90,7 @@ python demo_mechanisms.py
 
 ## WebUI 截图
 
-> 部署后访问线上地址体验：https://probe-ho3d.onrender.com
+> 部署后访问线上地址体验：https://probe-rgw2.onrender.com
 
 - 任务页：提交表单 + 历史表格 + 详情抽屉（步骤时间线）。
 - 代码地图：包图/类图 d3-graphviz 渲染 + DOT 源码折叠。
@@ -119,17 +119,9 @@ docker run -p 8000:8000 -v "$PWD/.env:/app/.env:ro" probe
 
 镜像内置 `demo-repo/`（一个含故意失败测试的小 Maven Java 工程），并设 `PROBE_DEMO_REPO=/app/demo-repo`，因此部署后 `/#/map` 与 `/map/package.dot` 不带 `repo` 参数即可直接渲染内置 demo 仓的结构图。
 
-### Render（推荐：网页连 GitHub 仓，无需 CLI）
-
-1. 注册 https://render.com（免费层即可）。
-2. New → **Web Service** → 连接 GitHub 仓 `ZengYYoung/probe`。
-3. Runtime 选 **Docker**（Render 自动识别 `Dockerfile`，多阶段构建自动执行）；端口 `8000`。
-4. Environment Variables（可选，仅 `/#/tasks` 跑真实 agent 时需要）：`LLM_API_KEY`、`LLM_BASE_URL`。
-5. Deploy → 得到公网 URL `https://probe-xxxx.onrender.com`。
+### Render
 
 **本项目线上地址**：https://probe-rgw2.onrender.com
-
-部署后验证：访问根 `/` 见 WebUI；`/#/map` 渲染 demo 仓包图；`/#/demo` 运行三大机制演示。
 
 ### Fly.io（备选：有 CLI）
 
