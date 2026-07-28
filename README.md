@@ -103,11 +103,6 @@ docker run -p 8000:8000 \
 
 **本项目线上地址**：https://probe-rgw2.onrender.com
 
-需在 Render Dashboard 设置环境变量：
-- `LLM_API_KEY` — DeepSeek API key
-
-默认 `LLM_BASE_URL` 已配置为 `https://api.deepseek.com`，模型为 `deepseek-v4-flash`。
-
 ### CI
 
 GitHub Actions（`.github/workflows/ci.yml`）含 `unit-test` job，只跑 mock 单测，不接触真实 key / LLM。
