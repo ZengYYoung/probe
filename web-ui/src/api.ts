@@ -75,20 +75,8 @@ export async function getDemo(): Promise<DemoResp> {
 export interface RepoUploadResp { repo_id: string; path: string; name: string; file_count: number }
 export interface RepoListItem { repo_id: string; name: string; file_count: number; path: string; is_demo: boolean }
 
-export interface AnalyzeFailure {
-  validator: string
-  severity: string
-  file: string
-  line: number | null
-  category: string
-  message: string
-  hint: string
-}
 export interface AnalyzeResult {
-  per_validator_status: Record<string, string>
-  failures: AnalyzeFailure[]
-  signature: string
-  summary: Record<string, number>
+  report: string
 }
 
 export async function analyzeRepo(target_repo: string): Promise<AnalyzeResult> {

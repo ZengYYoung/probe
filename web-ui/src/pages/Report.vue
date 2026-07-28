@@ -10,14 +10,6 @@ const analyzing = ref(false)
 const uploading = ref(false)
 const result = ref<AnalyzeResult | null>(null)
 
-const statusTag: Record<string, string> = {
-  PASS: 'success',
-  FAIL: 'danger',
-  SKIPPED: 'info',
-  UNAVAILABLE: 'warning',
-  RUNNING: 'primary',
-}
-
 onMounted(async () => {
   await syncRepos()
   targetRepo.value = getDemoRepoPath() || ''
@@ -107,48 +99,19 @@ async function onAnalyze() {
     </el-form>
   </el-card>
 
-  <template v-if="result">
-    <el-card style="margin-bottom: 16px">
-      <template #header>校验状态</template>
-      <el-space wrap>
-        <el-tag
-          v-for="(status, name) in result.per_validator_status"
-          :key="name"
-          :type="(statusTag[status] as any) || 'info'"
-          size="large"
-          effect="dark"
-        >
-          {{ name }}: {{ status }}
-        </el-tag>
-      </el-space>
-    </el-card>
-
-    <el-card v-if="result.failures.length" style="margin-bottom: 16px">
-      <template #header>
-        问题列表
-        <el-tag type="danger" style="margin-left: 8px">{{ result.failures.length }} 项</el-tag>
-      </template>
-      <el-table :data="result.failures" stripe border>
-        <el-table-column label="校验器" prop="validator" width="100" />
-        <el-table-column label="类别" prop="category" width="200" />
-        <el-table-column label="文件" prop="file" show-overflow-tooltip />
-        <el-table-column label="行" prop="line" width="70" />
-        <el-table-column label="问题描述" prop="message" show-overflow-tooltip />
-        <el-table-column label="建议" prop="hint" show-overflow-tooltip />
-      </el-table>
-    </el-card>
-
-    <el-card v-if="Object.keys(result.summary).length">
-      <template #header>汇总</template>
-      <el-space wrap>
-        <el-tag v-for="(count, cat) in result.summary" :key="cat" type="warning">
-          {{ cat }}: {{ count }}
-        </el-tag>
-      </el-space>
-    </el-card>
-
-    <el-card v-if="!result.failures.length" style="margin-top: 16px">
-      <el-result icon="success" title="全部通过" sub-title="所有校验器均 PASS，未发现问题。" />
-    </el-card>
-  </template>
+  <el-card v-if="result">
+    <template #header>分析报告</template>
+    <pre class="report">{{ result.report }}</pre>
+  </el-card>
 </template>
+
+<style scoped>
+.report {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--el-text-color-primary);
+}
+</style>

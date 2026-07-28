@@ -34,6 +34,7 @@ from probe.config import Config
 from probe.core.loop import AgentLoop, RunResult, Task
 from probe.core.types import Status
 from probe.llm.openai_compat import OpenAICompatibleClient
+from probe.llm.base import Message
 from probe.tools.registry import ToolRegistry
 from probe.validators.compile import CompileValidator
 from probe.validators.lint import LintValidator
@@ -399,24 +400,104 @@ def create_app(loop_factory: LoopFactory | None = None) -> FastAPI:
         del repos[repo_id]
         return {"ok": True, "repo_id": repo_id}
 
+    # ------------------------------------------------------------------
+    # 源码采集 + LLM 报告
+    # ------------------------------------------------------------------
+
+    _SOURCE_EXTS = {
+        ".java", ".py", ".js", ".ts", ".jsx", ".tsx", ".vue",
+        ".c", ".cpp", ".h", ".hpp", ".cs", ".go", ".rs", ".rb",
+        ".xml", ".json", ".yaml", ".yml", ".toml", ".properties",
+        ".gradle", ".sql", ".sh", ".bat",
+    }
+    _SKIP_DIRS = {
+        "node_modules", ".git", "__pycache__", ".venv", "venv",
+        "target", "build", "dist", ".idea", ".vscode", ".mypy_cache",
+        ".pytest_cache", ".ruff_cache", "htmlcov", ".tox",
+    }
+    _MAX_FILE_BYTES = 50_000   # 单文件截断
+    _MAX_TOTAL_BYTES = 300_000  # 总量截断（约 100k tokens）
+
+    def _collect_source(repo: Path) -> str:
+        """遍历 repo，读取源码文件，拼成 ``path\\n---\\ncontent`` 文本。"""
+        parts: list[str] = []
+        total = 0
+        for p in sorted(repo.rglob("*")):
+            if not p.is_file():
+                continue
+            if any(seg in _SKIP_DIRS for seg in p.relative_to(repo).parts):
+                continue
+            if p.suffix.lower() not in _SOURCE_EXTS and p.name not in (
+                "pom.xml", "build.gradle", "Makefile", "Dockerfile",
+                "requirements.txt", "pyproject.toml", "package.json",
+            ):
+                continue
+            try:
+                text = p.read_text(encoding="utf-8", errors="ignore")
+            except Exception:
+                continue
+            if len(text) > _MAX_FILE_BYTES:
+                text = text[:_MAX_FILE_BYTES] + "\n... [truncated]"
+            rel = p.relative_to(repo)
+            header = f"=== {rel} ==="
+            parts.append(header + "\n" + text)
+            total += len(text)
+            if total >= _MAX_TOTAL_BYTES:
+                parts.append("\n... [remaining files omitted due to size limit]")
+                break
+        return "\n\n".join(parts)
+
+    _REPORT_PROMPT = """\
+你是一个代码分析专家。请查看以下项目内容并给出分析报告。
+
+## 报告格式要求
+
+请严格按以下格式输出：
+
+### 1. 项目概述
+简要描述项目功能、技术栈、架构。
+
+### 2. 代码结构
+分析目录结构、模块划分、核心类/函数。
+
+### 3. 发现的问题
+列出问题（代码质量/安全/性能/架构），每项给出文件路径和行号。
+
+### 4. 改进建议
+针对问题提出具体建议。
+
+---
+
+## 项目代码
+
+{code}"""
+
     @app.post("/analyze")
     def analyze(req: AnalyzeRequest) -> dict:
-        """直接跑 ValidatorPipeline（compile→test→lint），返回 FailureReport。
-
-        不走 LLM / agent loop —— 纯读代码 + 确定性校验，无需 API key。
-        """
+        """读取项目源码，发送给 DeepSeek，返回 LLM 分析报告。"""
         repo_path = Path(req.target_repo)
         if not repo_path.is_dir():
             raise HTTPException(400, f"repo not found: {req.target_repo}")
 
+        code = _collect_source(repo_path)
+        if not code.strip():
+            raise HTTPException(400, "no source code found in repo")
+
         config = Config.load(None, {})
-        pipeline = ValidatorPipeline(
-            CompileValidator(),
-            TestValidator(),
-            LintValidator(),
-            config,
+        llm = OpenAICompatibleClient(
+            base_url=os.environ.get("LLM_BASE_URL", "https://api.deepseek.com"),
+            api_key=os.environ.get("LLM_API_KEY", ""),
+            model=config.llm.model,
         )
-        report = pipeline.run(str(repo_path), changed_files=None)
-        return report.model_dump(mode="json")
+
+        prompt = _REPORT_PROMPT.format(code=code)
+        messages = [Message(role="user", content=prompt)]
+
+        try:
+            resp = llm.complete(messages, tools=[])
+        except Exception as exc:
+            raise HTTPException(502, f"LLM call failed: {exc}")
+
+        return {"report": resp.raw}
 
     return app
