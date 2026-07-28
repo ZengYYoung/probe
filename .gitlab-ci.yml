@@ -1,10 +1,16 @@
-image: mirrors.nju.edu.cn/docker/library/python:3.12-slim-bookworm
-stages: [test]
+image: python:3.12-slim
+stages: [test, build]
 unit-test:
   stage: test
   before_script:
-    - sed -i 's/deb.debian.org/mirrors.nju.edu.cn/g' /etc/apt/sources.list.d/debian.sources
-    - apt-get update -qq && apt-get install -y -qq --no-install-recommends default-jdk-headless maven graphviz && rm -rf /var/lib/apt/lists/*
+    - apt-get update -qq
+    - apt-get install -y -qq default-jdk maven graphviz
   script:
     - pip install -e ".[dev]"
     - pytest -q -m 'not integration'
+build-image:
+  stage: build
+  image: docker:24
+  services: [docker:24-dind]
+  script:
+    - docker build -t probe:ci .
