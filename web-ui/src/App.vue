@@ -4,13 +4,11 @@ import { useRoute } from 'vue-router'
 import {
   Document,
   Share,
-  Warning,
   Cpu,
   Moon,
   Sunny,
 } from '@element-plus/icons-vue'
 import { syncRepos } from '@/stores/repos'
-import { syncTasks } from '@/stores/tasks'
 
 const route = useRoute()
 const isDark = ref(false)
@@ -29,16 +27,15 @@ onMounted(() => {
   const saved = localStorage.getItem('probe-dark') === 'true'
   isDark.value = saved
   applyDark(saved)
-  // Sync repos + tasks with backend on every page load — removes stale
-  // localStorage entries that no longer exist on the server.
+  // Clear stale task history from localStorage (task feature removed).
+  localStorage.removeItem('probe-tasks')
+  // Sync repos with backend — removes stale entries, adds built-in demo.
   syncRepos()
-  syncTasks()
 })
 
 const menus = [
-  { index: '/tasks', label: '任务', icon: Document },
+  { index: '/report', label: '代码报告', icon: Document },
   { index: '/map', label: '代码地图', icon: Share },
-  { index: '/approval', label: 'HITL 审批', icon: Warning },
   { index: '/demo', label: '机制演示', icon: Cpu },
 ]
 </script>

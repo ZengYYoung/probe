@@ -75,6 +75,32 @@ export async function getDemo(): Promise<DemoResp> {
 export interface RepoUploadResp { repo_id: string; path: string; name: string; file_count: number }
 export interface RepoListItem { repo_id: string; name: string; file_count: number; path: string; is_demo: boolean }
 
+export interface AnalyzeFailure {
+  validator: string
+  severity: string
+  file: string
+  line: number | null
+  category: string
+  message: string
+  hint: string
+}
+export interface AnalyzeResult {
+  per_validator_status: Record<string, string>
+  failures: AnalyzeFailure[]
+  signature: string
+  summary: Record<string, number>
+}
+
+export async function analyzeRepo(target_repo: string): Promise<AnalyzeResult> {
+  const r = await fetch(`${base}/analyze`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ target_repo }),
+  })
+  if (!r.ok) throw new Error(`analyze ${r.status}`)
+  return r.json()
+}
+
 export async function uploadRepo(file: File): Promise<RepoUploadResp> {
   const fd = new FormData()
   fd.append('file', file)

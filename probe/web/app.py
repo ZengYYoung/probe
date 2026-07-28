@@ -91,6 +91,10 @@ class ApproveResponse(BaseModel):
     ok: bool
 
 
+class AnalyzeRequest(BaseModel):
+    target_repo: str
+
+
 # ---------------------------------------------------------------------------
 # Default loop factory — real (best-effort) AgentLoop assembly.
 # ---------------------------------------------------------------------------
@@ -394,5 +398,25 @@ def create_app(loop_factory: LoopFactory | None = None) -> FastAPI:
             pass
         del repos[repo_id]
         return {"ok": True, "repo_id": repo_id}
+
+    @app.post("/analyze")
+    def analyze(req: AnalyzeRequest) -> dict:
+        """直接跑 ValidatorPipeline（compile→test→lint），返回 FailureReport。
+
+        不走 LLM / agent loop —— 纯读代码 + 确定性校验，无需 API key。
+        """
+        repo_path = Path(req.target_repo)
+        if not repo_path.is_dir():
+            raise HTTPException(400, f"repo not found: {req.target_repo}")
+
+        config = Config.load(None, {})
+        pipeline = ValidatorPipeline(
+            CompileValidator(),
+            TestValidator(),
+            LintValidator(),
+            config,
+        )
+        report = pipeline.run(str(repo_path), changed_files=None)
+        return report.model_dump(mode="json")
 
     return app
